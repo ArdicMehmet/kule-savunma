@@ -133,7 +133,7 @@ class UI {
     }
     const max = CFG.castle.maxHp;
     e.castleBar.style.width = (100 * Math.max(0, g.castleHp) / max) + '%';
-    e.castleVal.textContent = `${Math.max(0, g.castleHp)}/${max}`;
+    e.castleVal.textContent = `${Math.ceil(Math.max(0, g.castleHp))}/${max}`;
     e.waveVal.textContent = `Dalga ${W.wave}`;
     if (W.state === 'break') {
       e.waveStatus.textContent = `Sonraki dalga: ${Math.ceil(W.timer)} sn`;
@@ -209,12 +209,26 @@ class UI {
     if (!t.type) {
       body += `<div class="tp-desc">Bu temelin yanına git ve <kbd>E</kbd> bas: rastgele gelen <b>3 kuleden</b> birini seçerek kuleni kur.</div>`;
     } else {
-      const sp = t.basicReader('special');
+      let rows;
+      if (t.isSupport) {
+        const buffed = g.towers.filter((o) => o.type && !o.isSupport && dist(o.x, o.z, t.x, t.z) <= t.range).length;
+        rows = [['Etki alanı', fmt(t.range) + ' m'], ['Güçlenen kule', buffed], ['Hız bonusu', '+' + pct(t.auraHaste)],
+          ['Zehir şansı', pct(t.auraPoison)], ['Çağrı hasarı', '+' + pct(t.auraSummon)], ['Toplam hasar', fmt(t.totalDamage)]];
+      } else {
+        const sp = t.basicReader('special');
+        rows = [['Hasar', fmt(t.damage)], ['Hız', fmt(t.currentRate) + '/sn'], ['Menzil', fmt(t.range) + ' m'], [sp[0], sp[1]()]];
+        if (t.type === 'death') rows.push(['👻 Ruhlar', fmt(t.souls)], ['Ruh bonusu', '+' + pct(SOUL_DMG * t.souls)]);
+        rows.push(['Toplam hasar', fmt(t.totalDamage)], ['Öldürme', t.kills]);
+      }
       body += `<div class="tp-desc">${t.def.desc}</div><div class="tp-stats">` +
-        [['Hasar', fmt(t.damage)], ['Hız', fmt(t.currentRate) + '/sn'], ['Menzil', fmt(t.range) + ' m'], [sp[0], sp[1]()],
-          ['Toplam hasar', fmt(t.totalDamage)], ['Öldürme', t.kills]]
-          .map(([a, b]) => `<div class="tp-stat"><span>${a}</span><span>${b}</span></div>`).join('') + '</div>';
-      const chips = ['as', 'dmg', 'range', 'special'].filter((k) => t.cards[k] > 0)
+        rows.map(([a, b]) => `<div class="tp-stat"><span>${a}</span><span>${b}</span></div>`).join('') + '</div>';
+      if (t.buffFrom) {
+        const parts = ['+' + pct(t.buffHaste) + ' saldırı hızı'];
+        if (t.buffPoison > 0) parts.push(pct(t.buffPoison) + ' zehir şansı');
+        if (t.buffSummon > 1 && t.type === 'death') parts.push('+' + pct(t.buffSummon - 1) + ' zombi hasarı');
+        body += `<div class="tp-buff">🌳 Yaşam bufu: ${parts.join(', ')}</div>`;
+      }
+      const chips = t.basics.filter((k) => t.cards[k] > 0)
         .map((k) => { const i = t.basicCardInfo(k); return `<span class="tp-chip">${i.icon} ${i.name} x${t.cards[k]}</span>`; }).join('');
       body += `<div class="tp-section">Temel kartlar</div><div class="tp-cards">${chips || '<span class="tp-none">Henüz yok</span>'}</div>`;
       const abs = Object.values(t.abilities).map((ab) => {

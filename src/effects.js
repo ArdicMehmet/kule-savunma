@@ -21,7 +21,21 @@ function initFxAssets() {
   P.lava = { geo: FXGEO.ico0, mat: basic(0xff5a1a), s: [0.3, 0.3, 0.3], glow: glowMat(0xff3a00), gs: 1.8, trail: [0xff4a00, 0xffa020], tsize: 0.45 };
   P.bomb = { geo: FXGEO.ico0, mat: new THREE.MeshStandardMaterial({ color: 0x2f5a1f, flatShading: true }), s: [0.3, 0.3, 0.3], glow: glowMat(0x8cff4a), gs: 0.9, trail: [0x6aff2a, 0x3a8a1a], tsize: 0.3 };
   P.hero = { geo: FXGEO.sph, mat: basic(0xe0fcff), s: [0.14, 0.14, 0.14], glow: glowMat(0x6fe8ff), gs: 1.0, trail: [0x9ff4ff, 0x6fe8ff], tsize: 0.2 };
+  P.death = { geo: FXGEO.sph, mat: basic(0x1c0828), s: [0.2, 0.2, 0.2], glow: glowMat(0xa45cff), gs: 1.5, trail: [0xa45cff, 0x6a2aa8, 0xd8b0ff], tsize: 0.3 };
+  P.gold = { geo: FXGEO.ico0, mat: basic(0xffd85a), s: [0.26, 0.26, 0.26], glow: glowMat(0xb45cff), gs: 1.9, trail: [0xffd85a, 0xc070ff, 0xfff0a0], tsize: 0.34 };
+  P.fairy = { geo: FXGEO.sph, mat: basic(0xf4ffe0), s: [0.1, 0.1, 0.1], glow: glowMat(0x8dff9a), gs: 0.8, trail: [0xb8ffb0, 0xfff6b0], tsize: 0.16 };
+  P.seed = { geo: FXGEO.ico0, mat: new THREE.MeshStandardMaterial({ color: 0x7a5a2a, flatShading: true }), s: [0.24, 0.3, 0.24], glow: glowMat(0x5fe08a), gs: 1.0, trail: [0x5fe08a, 0x9cff6a], tsize: 0.26 };
+  P.rock = { geo: FXGEO.ico0, mat: new THREE.MeshStandardMaterial({ color: 0x7a6650, flatShading: true }), s: [0.32, 0.28, 0.32], glow: glowMat(0x9a7a4a), gs: 0.6, trail: [0x8a7458, 0x6a5a48], tsize: 0.3 };
   FXMAT.proj = P;
+  FXMAT.wisp = new THREE.SpriteMaterial({ map: TEX.glow, color: 0xb070ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  FXMAT.crystal = new THREE.MeshStandardMaterial({ color: 0xd8b8ff, emissive: 0x8a3cff, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.1, flatShading: true });
+  FXMAT.crystalGlow = new THREE.SpriteMaterial({ map: TEX.glow, color: 0xb070ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  FXMAT.fairyGlow = new THREE.SpriteMaterial({ map: TEX.glow, color: 0x9dffb0, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  FXMAT.fairyWing = new THREE.MeshBasicMaterial({ color: 0xd8ffe8, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+  FXMAT.zombieAura = new THREE.MeshBasicMaterial({ map: TEX.soft, color: 0x8a3cff, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  FXMAT.seedGlow = new THREE.MeshBasicMaterial({ map: TEX.soft, color: 0x5fe08a, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  FXGEO.wing = new THREE.PlaneGeometry(0.34, 0.2);
+  FXGEO.wing.translate(0.17, 0, 0);
 }
 
 function makeProjectileMesh(kind) {

@@ -321,9 +321,127 @@ const Models = {
       const glow = glowSprite(0x7dff3a, 2.4, 0.55); glow.position.y = 3.8; g.add(glow);
       anim.parts = { surf, glow };
       muzzleY = 3.75;
+    } else if (type === 'death') {
+      g.add(this.mesh('tower_death', () => {
+        const parts = [
+          P(G.cyl(0.8, 1.0, 1.45, 6), 0x3a3346, [0, 1.28, 0]),
+          P(G.cyl(0.92, 0.92, 0.14, 6), 0x1f1a26, [0, 1.95, 0]),
+          P(G.cyl(0.52, 0.76, 1.35, 6), 0x4a3f5c, [0, 2.7, 0]),
+          P(G.cyl(0.85, 0.55, 0.32, 6), 0x2a2333, [0, 3.52, 0]),
+          P(G.tor(0.82, 0.06, 4, 12), 0xd8cfb4, [0, 3.7, 0], [PI / 2, 0, 0]),
+          P(G.ico(0.3, 0), 0xe6dcc0, [0, 2.75, 0.62], null, [1, 1.05, 0.9]),
+          P(G.box(0.1, 0.09, 0.05), 0x2a0838, [-0.1, 2.8, 0.89]),
+          P(G.box(0.1, 0.09, 0.05), 0x2a0838, [0.1, 2.8, 0.89]),
+          P(G.box(0.18, 0.06, 0.05), 0xcfc6aa, [0, 2.58, 0.84]),
+          P(G.box(0.12, 0.5, 0.06), 0xa45cff, [0, 1.35, 0.94]),
+        ];
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * PI * 2 + PI / 6;
+          parts.push(P(G.cone(0.09, 0.62, 4), 0xe6dcc0, [Math.cos(a) * 0.72, 3.95, Math.sin(a) * 0.72], [Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3]));
+        }
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * PI * 2 + 0.9;
+          const x = Math.cos(a) * 1.18, z = Math.sin(a) * 1.18;
+          parts.push(P(G.box(0.42, 0.62, 0.14), 0x6d6a78, [x, 0.86, z], [0.12, -a + PI / 2, 0.08]));
+          parts.push(P(G.cyl(0.21, 0.21, 0.14, 8, 1), 0x6d6a78, [x, 1.17, z], [PI / 2, 0, -a + PI / 2], [1, 1, 1]));
+        }
+        return mergeParts(parts);
+      }));
+      const core = new THREE.Mesh(G.sph(0.34, 14, 10), new THREE.MeshBasicMaterial({ color: 0x1a0626, toneMapped: false }));
+      core.userData.ownMat = true;
+      core.position.y = 4.35;
+      g.add(core);
+      const ring = new THREE.Mesh(G.tor(0.58, 0.03, 4, 28), MAT.glowAdd(0xc890ff, 0.9));
+      ring.userData.ownMat = true;
+      ring.position.y = 4.35;
+      g.add(ring);
+      const wisps = [];
+      for (let i = 0; i < 3; i++) { const w = glowSprite(0xb070ff, 0.55, 0.9); g.add(w); wisps.push(w); }
+      const glow = glowSprite(0x9b4dff, 3.0, 0.85); glow.position.y = 4.35; g.add(glow);
+      anim.parts = { core, ring, wisps, glow };
+      muzzleY = 4.35;
+    } else if (type === 'life') {
+      g.add(this.mesh('tower_life', () => {
+        const parts = [
+          P(G.cyl(0.5, 0.82, 1.6, 7), 0x6b4a2e, [0, 1.35, 0]),
+          P(G.cyl(0.36, 0.5, 1.2, 7), 0x7a5634, [0, 2.75, 0], [0, 0, 0.06]),
+          P(G.tor(0.62, 0.07, 4, 12), 0x4a8a3a, [0, 1.75, 0], [PI / 2, 0, 0]),
+          P(G.ico(0.18, 0), 0x5fb84a, [0.6, 1.82, 0.2]),
+          P(G.ico(0.15, 0), 0x6fd05a, [-0.45, 1.8, -0.4]),
+          P(G.ico(0.16, 0), 0xffd0e8, [0.1, 1.84, 0.62]),
+        ];
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * PI * 2 + 0.3;
+          parts.push(P(G.cone(0.18, 0.95, 5), 0x5a3e26, [Math.cos(a) * 0.82, 0.78, Math.sin(a) * 0.82], [Math.sin(a) * 1.15, 0, -Math.cos(a) * 1.15]));
+        }
+        return mergeParts(parts);
+      }));
+      const canopy = new THREE.Group();
+      canopy.position.y = 3.35;
+      canopy.add(this.mesh('tower_life_canopy', () => mergeParts([
+        P(G.ico(0.95, 0), 0x3f9a4a, [0, 0.25, 0], null, [1.1, 0.8, 1.1]),
+        P(G.ico(0.7, 0), 0x52b35a, [0.62, 0.05, 0.3]),
+        P(G.ico(0.66, 0), 0x2f7a3a, [-0.55, 0.1, 0.42]),
+        P(G.ico(0.62, 0), 0x48a852, [0.1, 0.0, -0.66]),
+        P(G.ico(0.55, 0), 0x5cc464, [-0.2, 0.75, -0.1]),
+        P(G.ico(0.12, 0), 0xff8fc8, [0.7, 0.55, 0.55]),
+        P(G.ico(0.12, 0), 0xfff08a, [-0.75, 0.45, -0.3]),
+        P(G.ico(0.11, 0), 0xff8fc8, [-0.3, 0.6, 0.8]),
+      ])));
+      g.add(canopy);
+      const bloom = new THREE.Mesh(G.oct(0.26), new THREE.MeshBasicMaterial({ color: 0xc8ffd8, toneMapped: false }));
+      bloom.userData.ownMat = true;
+      bloom.scale.set(1, 1.5, 1);
+      bloom.position.y = 4.55;
+      g.add(bloom);
+      const leaves = [];
+      for (let i = 0; i < 4; i++) {
+        const l = new THREE.Mesh(FXGEO.wing, MAT.glowAdd(0x8dffa0, 0.75));
+        l.userData.ownMat = true;
+        g.add(l); leaves.push(l);
+      }
+      const glow = glowSprite(0x5fe08a, 3.2, 0.75); glow.position.y = 4.5; g.add(glow);
+      anim.parts = { canopy, bloom, leaves, glow };
+      muzzleY = 4.4;
     }
     g.traverse((o) => { if (o.isMesh && o.material === MAT.vc) o.castShadow = true; });
     return { group: g, anim, muzzleY };
+  },
+
+  // ---------------- Çağrılan yaratıklar ----------------
+  zombie() {
+    const g = new THREE.Group();
+    const legL = this.mesh('zombie_leg', () => mergeParts([P(G.box(0.17, 0.42, 0.18), 0x3f3d52, [0, -0.21, 0])]));
+    const legR = new THREE.Mesh(legL.geometry, MAT.vc);
+    legL.position.set(-0.12, 0.42, 0); legR.position.set(0.12, 0.42, 0);
+    const body = this.mesh('zombie_body', () => mergeParts([
+      P(G.box(0.46, 0.5, 0.3), 0x5f6e48, [0, 0.66, 0], [0.18, 0, 0.06]),
+      P(G.box(0.3, 0.12, 0.31), 0x4a3a52, [0.06, 0.48, 0]),
+      P(G.box(0.34, 0.32, 0.32), 0x8fae7a, [0.02, 1.08, 0.1], [0.3, 0.2, -0.12]),
+      P(G.box(0.08, 0.06, 0.04), 0xd86bff, [-0.07, 1.12, 0.27]),
+      P(G.box(0.08, 0.06, 0.04), 0xd86bff, [0.11, 1.1, 0.27]),
+      P(G.box(0.12, 0.12, 0.5), 0x8fae7a, [-0.3, 0.86, 0.26], [-0.12, 0.1, 0]),
+      P(G.box(0.12, 0.12, 0.46), 0x7f9e6a, [0.3, 0.8, 0.24], [0.1, -0.1, 0]),
+    ]));
+    g.add(legL, legR, body);
+    legR.castShadow = true;
+    const aura = new THREE.Mesh(FXGEO.plane, FXMAT.zombieAura);
+    aura.rotation.x = -PI / 2; aura.position.y = 0.06; aura.scale.setScalar(0.65);
+    aura.renderOrder = 4;
+    g.add(aura);
+    g.userData = { legL, legR, body };
+    g.scale.setScalar(1.15);
+    return g;
+  },
+
+  seed() {
+    return this.mesh('seed', () => mergeParts([
+      P(G.ico(0.26, 0), 0x7a5a2a, [0, 0.22, 0], null, [1, 1.25, 1]),
+      P(G.cyl(0.22, 0.27, 0.12, 7), 0x4a3a1e, [0, 0.42, 0]),
+      P(G.cone(0.05, 0.3, 4), 0x6fd05a, [0, 0.62, 0]),
+      P(G.box(0.2, 0.03, 0.09), 0x7ce060, [0.09, 0.72, 0], [0, 0, 0.5]),
+      P(G.box(0.2, 0.03, 0.09), 0x7ce060, [-0.09, 0.7, 0], [0, 0, -0.5]),
+    ]), false);
   },
 
   ghost() {

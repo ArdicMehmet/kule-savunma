@@ -67,6 +67,7 @@ kbd {
 .tp-name { font-size: 17px; font-weight: 800; }
 .tp-level { font-size: 12px; color: #ffd451; font-weight: 700; }
 .tp-desc { color: #aab4be; font-size: 12px; margin-bottom: 8px; }
+.tp-buff { color: #7ee787; font-size: 12px; margin: -2px 0 8px; padding: 4px 8px; border-radius: 6px; background: rgba(95, 224, 138, 0.1); border: 1px solid rgba(95, 224, 138, 0.25); }
 .tp-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-bottom: 8px; }
 .tp-stat { display: flex; justify-content: space-between; background: rgba(255,255,255,.04); padding: 3px 7px; border-radius: 6px; }
 .tp-stat span:first-child { color: #9aa4ae; }
@@ -176,7 +177,7 @@ kbd {
 #cards { display: flex; gap: 22px; justify-content: center; perspective: 1200px; }
 #card-actions { margin-top: 22px; }
 
-.card { width: 226px; height: 330px; cursor: pointer; position: relative; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.2,.8,.2,1.15); transform: rotateY(180deg); }
+.card { width: 232px; height: 360px; cursor: pointer; position: relative; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.2,.8,.2,1.15); transform: rotateY(180deg); }
 .card.revealed { transform: rotateY(0deg); }
 .card.revealed:hover { transform: translateY(-10px) scale(1.03); }
 .card .face, .card .back {
@@ -200,7 +201,7 @@ kbd {
 .card.r-tower .face { background: linear-gradient(180deg, #2d2a3d, #15131f); }
 @keyframes rareglow { 0%,100% { box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 18px rgba(255,181,46,.5); } 50% { box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 38px rgba(255,200,80,.95); } }
 .card .rar { font-size: 11px; font-weight: 900; letter-spacing: 2px; color: var(--rc); text-transform: uppercase; }
-.card .cicon { font-size: 54px; margin: 8px 0 4px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.6)); }
+.card .cicon { font-size: 48px; margin: 4px 0 2px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.6)); }
 .card .cname { font-size: 18px; font-weight: 900; line-height: 1.15; }
 .card .clevel { font-size: 13px; font-weight: 800; color: #ffd451; margin: 4px 0 6px; }
 .card .clevel.new { color: #7ee787; }

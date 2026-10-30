@@ -51,7 +51,7 @@ class Game {
     this.castleHp = CFG.castle.maxHp;
     this.speed = 1;
     this.luck = 0; this.heroLevel = 0; this.repairs = 0; this.foundationsBought = 0; this.rerollCount = 0;
-    this.enemies = []; this.towers = []; this.projectiles = []; this.effects = [];
+    this.enemies = []; this.towers = []; this.projectiles = []; this.effects = []; this.seeds = [];
     this.grid = new SpatialGrid(4); this._q = [];
     this.stats = { kills: 0, goldEarned: 0, towers: 0 };
     this.time = 0; this.camShake = 0; this.zoom = 1; this.zoomTarget = 1; this.smokeT = 0;
@@ -509,14 +509,18 @@ class Game {
   towerChoiceCards() {
     return shuffle(Object.keys(TOWER_TYPES)).slice(0, 3).map((id) => {
       const d = TOWER_TYPES[id];
+      const stats = d.support ? [
+        ['Saldırı', null, 'Yok (destek)'],
+        ['Etki alanı', null, fmt(d.base.range) + ' m'],
+        ['Alan bufu', null, '+%8 saldırı hızı'],
+      ] : [
+        ['Hasar', null, fmt(d.base.damage)],
+        ['Saldırı hızı', null, fmt(d.base.rate) + '/sn'],
+        ['Menzil', null, fmt(d.base.range) + ' m'],
+      ];
       return {
         kind: 'tower', id, rarity: 'tower', icon: d.icon, name: d.name, levelText: 'YENİ KULE', desc: d.desc,
-        preview: [
-          ['Hasar', null, fmt(d.base.damage)],
-          ['Saldırı hızı', null, fmt(d.base.rate) + '/sn'],
-          ['Menzil', null, fmt(d.base.range) + ' m'],
-          ['Yetenekler', null, d.abilities.map((a) => ABILITY_DEFS[a].icon).join(' ')],
-        ],
+        preview: [...stats, ['Yetenekler', null, d.abilities.map((a) => ABILITY_DEFS[a].icon).join(' ')]],
       };
     });
   }
@@ -604,6 +608,31 @@ class Game {
       if (ab && (!best || ab.level > best.abilities.contagion.level)) best = t;
     }
     this.contagionTower = best;
+    // Yaşam Kulesi auraları: etki alanındaki kulelere buf
+    for (const t of this.towers) {
+      t.buffHaste = 0; t.buffPoison = 0; t.buffSummon = 1; t.buffFrom = null;
+    }
+    for (const L of this.towers) {
+      if (!L.isSupport) continue;
+      L.buffSummon += L.auraSummon;
+      for (const t of this.towers) {
+        if (t === L || !t.type || t.isSupport || dist(t.x, t.z, L.x, L.z) > L.range) continue;
+        t.buffHaste += L.auraHaste;
+        t.buffPoison += L.auraPoison;
+        t.buffSummon += L.auraSummon;
+        if (!t.buffFrom || L.level > t.buffFrom.level) t.buffFrom = L;
+      }
+    }
+    for (const t of this.towers) {
+      t.buffHaste = Math.min(0.8, t.buffHaste);
+      t.buffPoison = Math.min(0.6, t.buffPoison);
+      t.buffSummon = Math.min(3, t.buffSummon);
+    }
+  }
+
+  triggerSeeds(x, z) {
+    const r2 = SEED_TRIGGER_R * SEED_TRIGGER_R;
+    for (const s of this.seeds) if (!s.exploded && dist2(s.x, s.z, x, z) <= r2) s.explode();
   }
 
   // ---------------- Mağaza ----------------
@@ -618,7 +647,7 @@ class Game {
       { id: 'foundation', icon: '🧱', name: 'Kule Temeli',
         desc: 'Kahramanının yakınına bir temel yerleştir. Yanına gidip <kbd>E</kbd> ile 3 rastgele kuleden birini seç. Kısayol: <kbd>T</kbd>',
         cost: CFG.foundationCost(this.foundationsBought), disabled: !!this.placing },
-      { id: 'repair', icon: '🛠️', name: 'Kale Onarımı', desc: `Kaleye +5 can verir. (${this.castleHp}/${max})`,
+      { id: 'repair', icon: '🛠️', name: 'Kale Onarımı', desc: `Kaleye +5 can verir. (${Math.ceil(this.castleHp)}/${max})`,
         cost: this.repairCost(), disabled: this.castleHp >= max },
       { id: 'luck', icon: '🍀', name: 'Şans Tılsımı',
         desc: `Yükseltmelerde Orta/Nadir kart şansını artırır. Nadir şansı: %${nadir(this.luck)}${this.luck < 5 ? ' → %' + nadir(this.luck + 1) : ''} (Sv. ${this.luck}/5)`,
@@ -712,6 +741,9 @@ class Game {
       const tw = ps && ps.abilities && ps.abilities.contagion ? ps : this.contagionTower;
       if (tw) contagionBurst(this, e, tw);
     }
+    const ct = e.curseT > 0 ? e.curseSrc : null;
+    if (ct && !ct.removed) grantSouls(this, e, ct);
+    if (e.goldMark) { dropCrystals(this, e.x, e.z, e.goldMark.crystals); e.goldMark = null; }
   }
 
   enemyLeaked(e) {
@@ -719,10 +751,10 @@ class Game {
     e.dead = true;
     e.removed = true;
     e.hpBar.visible = false;
-    const dmg = e.T.dmg, c = CFG.castle;
-    this.castleHp = Math.max(0, this.castleHp - dmg);
+    const dmg = e.leakDamage, c = CFG.castle;
+    this.castleHp = Math.max(0, Math.round((this.castleHp - dmg) * 100) / 100);
     this.ui.hitFlash();
-    this.ui.floatText(c.x, 6, c.z, `-${dmg} ❤️`, '#ff6b5b', 20);
+    this.ui.floatText(c.x, 6, c.z, `-${fmt(dmg)} ❤️${dmg < e.T.dmg ? ' 🍂' : ''}`, '#ff6b5b', 20);
     this.fxA.burst(e.x, 1, e.z, 16, { color: 0xff5040, speed: 3, life: 0.5, size: 0.4, gravity: 2 });
     this.shake(0.3);
     Sound.play('leak');

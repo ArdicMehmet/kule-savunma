@@ -6,9 +6,12 @@ class Tower {
   constructor(game, x, z) {
     this.game = game; this.x = x; this.z = z;
     this.type = null; this.level = 0;
-    this.cards = { as: 0, dmg: 0, range: 0, special: 0 };
+    this.isTower = true;
+    this.cards = { as: 0, dmg: 0, range: 0, special: 0, l_poison: 0, l_haste: 0, l_summon: 0 };
     this.abilities = {};
     this.spent = 0; this.totalDamage = 0; this.kills = 0;
+    this.souls = 0; this.zombies = 0; this.fairies = 0; this.seedCount = 0;
+    this.buffHaste = 0; this.buffPoison = 0; this.buffSummon = 1; this.buffFrom = null; this.buffFxT = rand(0, 0.5);
     this.attackTimer = 0.3; this.overloadT = 0; this.overloadBonus = 0;
     this.castT = 0; this.buildT = 1; this.time = rand(0, 10); this.emberT = 0;
     this.removed = false;
@@ -29,7 +32,8 @@ class Tower {
   get def() { return TOWER_TYPES[this.type]; }
   get name() { return this.type ? this.def.name : 'Kule Temeli'; }
   get icon() { return this.type ? this.def.icon : '🧱'; }
-  get currentRate() { return this.rate * (this.overloadT > 0 ? 1 + this.overloadBonus : 1); }
+  get isSupport() { return !!(this.type && this.def.support); }
+  get currentRate() { return this.rate * (1 + this.buffHaste) * (this.overloadT > 0 ? 1 + this.overloadBonus : 1); }
   levelScale() { return 1 + Math.min(0.3, 0.025 * Math.max(0, this.level - 1)); }
 
   setType(type) {
@@ -47,14 +51,26 @@ class Tower {
 
   recalc() {
     const c = this.cards;
+    this.burnMult = 1; this.slowBonus = 0; this.bounces = 0; this.shredPerHit = 0; this.shredCap = 0;
+    this.soulsPerKill = 0; this.auraHaste = 0; this.auraPoison = 0; this.auraSummon = 0;
     if (!this.type) {
       this.range = 0; this.damage = 0; this.rate = 0; this.dmgMult = 1;
-      this.burnMult = 1; this.slowBonus = 0; this.bounces = 0; this.shredPerHit = 0; this.shredCap = 0;
       return;
     }
     const b = this.def.base;
+    this.muzzleY = this.baseMuzzleY * this.levelScale();
+    if (this.isSupport) {
+      this.dmgMult = 1 + 0.06 * (this.level - 1);
+      this.damage = 0; this.rate = 0;
+      this.range = b.range + Math.min(3, 0.2 * (this.level - 1));
+      this.auraHaste = 0.08 + 0.07 * c.l_haste;
+      this.auraPoison = Math.min(0.56, 0.08 * c.l_poison);
+      this.auraSummon = 0.25 * c.l_summon;
+      return;
+    }
     const sp = (t) => (this.type === t ? c.special : 0);
-    this.dmgMult = (1 + 0.15 * c.dmg) * (1 + 0.04 * (this.level - 1));
+    const soulMult = this.type === 'death' ? 1 + SOUL_DMG * this.souls : 1;
+    this.dmgMult = (1 + 0.15 * c.dmg) * (1 + 0.04 * (this.level - 1)) * soulMult;
     this.damage = b.damage * this.dmgMult;
     this.rate = b.rate * (1 + 0.12 * c.as);
     this.range = b.range * (1 + 0.08 * Math.min(c.range, BASIC_CARDS.range.max));
@@ -63,7 +79,12 @@ class Tower {
     this.bounces = Math.min(12, 2 + sp('storm'));
     this.shredPerHit = 3 * (1 + 0.5 * sp('acid'));
     this.shredCap = 24 + 8 * sp('acid');
-    this.muzzleY = this.baseMuzzleY * this.levelScale();
+    this.soulsPerKill = 1 + sp('death');
+  }
+
+  addSouls(n) {
+    this.souls += n;
+    this.recalc();
   }
 
   updateLabel() {
@@ -83,16 +104,27 @@ class Tower {
     this.time += dt;
     this.animate(dt);
     if (!this.type) return;
-    if (this.overloadT > 0) this.overloadT -= dt;
-    this.attackTimer -= dt;
-    if (this.attackTimer <= 0) {
-      const t = this.firstTarget(this.range);
-      if (t) {
-        this.attack(t);
-        this.attackTimer = Math.max(0.02, this.attackTimer + 1 / this.currentRate);
-      } else this.attackTimer = 0;
+    if (!this.isSupport) {
+      if (this.overloadT > 0) this.overloadT -= dt;
+      this.attackTimer -= dt;
+      if (this.attackTimer <= 0) {
+        const t = this.firstTarget(this.range);
+        if (t) {
+          this.attack(t);
+          this.attackTimer = Math.max(0.02, this.attackTimer + 1 / this.currentRate);
+        } else this.attackTimer = 0;
+      }
     }
     for (const id in this.abilities) ABILITY_IMPL[id].update(this, this.abilities[id], dt);
+  }
+
+  // Temel atış isabeti: yetenek sayılmaz (tohum patlatmaz); Yaşam Kulesi bufu varsa zehir şansı
+  basicHit(e, dmg) {
+    e.takeDamage(dmg, { src: this, basic: true });
+    if (this.buffPoison > 0 && !e.dead && Math.random() < this.buffPoison) {
+      const L = this.buffFrom;
+      e.addPoison(2 + Math.floor(L.cards.l_poison / 2), poisonDps(L), L);
+    }
   }
 
   attack(t) {
@@ -103,7 +135,7 @@ class Tower {
         g.addProjectile(new Projectile(g, {
           kind: 'fire', x: mx, y: my, z: mz, target: t, speed: 18,
           onHit: (x, y, z, e) => {
-            if (e) { e.takeDamage(this.damage, { src: this }); e.applyBurn(this.damage * 0.4 * this.burnMult, 3, this); }
+            if (e) { this.basicHit(e, this.damage); e.applyBurn(this.damage * 0.4 * this.burnMult, 3, this); }
             g.fxA.burst(x, y, z, 7, { color: 0xff8a30, speed: 2.5, life: 0.35, size: 0.35, gravity: 2 });
           },
         }));
@@ -113,11 +145,21 @@ class Tower {
         g.addProjectile(new Projectile(g, {
           kind: 'ice', x: mx, y: my, z: mz, target: t, speed: 22,
           onHit: (x, y, z, e) => {
-            if (e) { e.takeDamage(this.damage, { src: this }); e.applySlow(0.3 + this.slowBonus, 1.6); }
+            if (e) { this.basicHit(e, this.damage); e.applySlow(0.3 + this.slowBonus, 1.6); }
             g.fxA.burst(x, y, z, 7, { color: 0xbff0ff, speed: 2.5, life: 0.35, size: 0.25, gravity: 3 });
           },
         }));
         Sound.play('ice_shot');
+        break;
+      case 'death':
+        g.addProjectile(new Projectile(g, {
+          kind: 'death', x: mx, y: my, z: mz, target: t, speed: 17,
+          onHit: (x, y, z, e) => {
+            if (e) { e.applyCurse(this, 6); this.basicHit(e, this.damage); }
+            g.fxA.burst(x, y, z, 8, { color: choice(DEATH_COLORS), speed: 2.2, life: 0.4, size: 0.32, gravity: -1 });
+          },
+        }));
+        Sound.play('curse', 0.6);
         break;
       case 'storm':
         this.chainLightning(t);
@@ -129,7 +171,7 @@ class Tower {
           kind: 'acid', x: mx, y: my, z: mz, tx: pr.x, tz: pr.z, arc: true, dur: 0.6, arcH: 2.5,
           onHit: (x, y, z) => {
             for (const e of g.enemiesInRadius(x, z, 1.8)) {
-              e.takeDamage(this.damage, { src: this });
+              this.basicHit(e, this.damage);
               e.addShred(this.shredPerHit, this.shredCap, 5);
             }
             acidSplash(g, x, z, 1.8);
@@ -161,7 +203,7 @@ class Tower {
     hits.forEach((e, i) => {
       const y = e.T.height * 0.6;
       pts.push(new THREE.Vector3(e.x, y, e.z));
-      e.takeDamage(this.damage * Math.max(0.4, 1 - 0.12 * i), { src: this });
+      this.basicHit(e, this.damage * Math.max(0.4, 1 - 0.12 * i));
       sparkBurst(g, e.x, y, e.z, 5);
     });
     g.addFx(new LightningFx(g, pts, 0xb48cff, 0.07, 0.18, 0.35));
@@ -225,6 +267,54 @@ class Tower {
           g.fxA.emit({ x: this.x + rand(-0.5, 0.5) * s, y: 3.6 * s, z: this.z + rand(-0.5, 0.5) * s, vy: rand(0.4, 1), life: 0.6, size: rand(0.12, 0.22), size2: 0.3, color: choice(ACID_COLORS), alpha: 0.8 });
         }
         break;
+      case 'death': {
+        const cy = 4.35 + Math.sin(t * 2) * 0.1;
+        P.core.position.y = cy;
+        P.core.scale.setScalar(1 + this.castT * 0.35 + Math.sin(t * 5) * 0.04);
+        P.ring.position.y = cy;
+        P.ring.rotation.set(Math.PI / 2 + Math.sin(t * 0.8) * 0.45, t * 1.2, 0);
+        P.wisps.forEach((w, i) => {
+          const a = t * 1.6 + i * 2.094;
+          w.position.set(Math.cos(a) * 0.95, cy - 0.15 + Math.sin(t * 2.5 + i) * 0.35, Math.sin(a) * 0.95);
+        });
+        P.glow.position.y = cy;
+        P.glow.scale.setScalar(3 + this.castT * 1.8 + Math.min(1.5, this.souls * 0.004) + Math.sin(t * 3) * 0.15);
+        this.emberT -= dt;
+        if (this.emberT <= 0) {
+          this.emberT = 0.18;
+          const a = rand(0, Math.PI * 2);
+          g.fxA.emit({ x: this.x + Math.cos(a) * 0.8 * s, y: 3.9 * s, z: this.z + Math.sin(a) * 0.8 * s, vx: -Math.cos(a) * 0.5, vy: rand(0.6, 1.3), vz: -Math.sin(a) * 0.5, life: rand(0.6, 1), size: rand(0.14, 0.24), size2: 0, color: choice(DEATH_COLORS), alpha: 0.8 });
+        }
+        break;
+      }
+      case 'life': {
+        P.canopy.rotation.z = Math.sin(t * 1.1) * 0.05;
+        P.canopy.rotation.x = Math.cos(t * 0.9) * 0.035;
+        P.canopy.scale.setScalar(1 + this.castT * 0.1 + Math.sin(t * 1.7) * 0.015);
+        P.bloom.rotation.y += dt * 1.5;
+        P.bloom.position.y = 4.55 + Math.sin(t * 2) * 0.08;
+        P.leaves.forEach((l, i) => {
+          const a = t * 0.9 + i * Math.PI / 2;
+          l.position.set(Math.cos(a) * 1.65, 3.1 + Math.sin(t * 1.7 + i) * 0.5, Math.sin(a) * 1.65);
+          l.rotation.set(t * 2 + i, a, Math.sin(t * 4 + i) * 0.6);
+        });
+        P.glow.scale.setScalar(3.2 + this.castT * 1.8 + Math.sin(t * 2) * 0.2);
+        this.emberT -= dt;
+        if (this.emberT <= 0) {
+          this.emberT = 0.22;
+          const a = rand(0, Math.PI * 2), r = rand(0.4, 1.4) * s;
+          g.fxA.emit({ x: this.x + Math.cos(a) * r, y: rand(2.8, 4.2) * s, z: this.z + Math.sin(a) * r, vx: rand(-0.2, 0.2), vy: rand(0.2, 0.6), vz: rand(-0.2, 0.2), life: rand(0.9, 1.5), size: rand(0.1, 0.18), size2: 0, color: choice(LIFE_COLORS), alpha: 0.85 });
+        }
+        break;
+      }
+    }
+    if (this.buffFrom) {
+      this.buffFxT -= dt;
+      if (this.buffFxT <= 0) {
+        this.buffFxT = 0.4;
+        const a = rand(0, Math.PI * 2);
+        g.fxA.emit({ x: this.x + Math.cos(a) * 1.1, y: rand(0.5, 1.6), z: this.z + Math.sin(a) * 1.1, vy: rand(0.5, 1), life: 0.9, size: rand(0.12, 0.18), size2: 0, color: choice(LIFE_COLORS), alpha: 0.75 });
+      }
     }
   }
 
@@ -236,6 +326,7 @@ class Tower {
     if (id !== 'special') return BASIC_CARDS[id];
     return this.def.special;
   }
+  get basics() { return this.def.basics || DEFAULT_BASICS; }
 
   // Değişikliğin önizlemesi için geçici olarak uygular ve geri alır
   withPreview(mutate, read) {
@@ -257,11 +348,15 @@ class Tower {
       case 'as': return ['Saldırı hızı', () => fmt(this.rate) + '/sn'];
       case 'dmg': return ['Hasar', () => fmt(this.damage)];
       case 'range': return ['Menzil', () => fmt(this.range) + ' m'];
+      case 'l_poison': return ['Zehir şansı (alan)', () => pct(this.auraPoison)];
+      case 'l_haste': return ['Hız bonusu (alan)', () => '+' + pct(this.auraHaste)];
+      case 'l_summon': return ['Çağrı hasarı (alan)', () => '+' + pct(this.auraSummon)];
     }
     switch (this.type) {
       case 'fire': return ['Yanma gücü', () => pct(this.burnMult)];
       case 'ice': return ['Yavaşlatma', () => pct(0.3 + this.slowBonus)];
       case 'storm': return ['Sekme', () => this.bounces + ' düşman'];
+      case 'death': return ['Ruh / öldürme', () => this.soulsPerKill + ' ruh'];
       default: return ['Zırh azaltma', () => '-' + fmt(this.shredPerHit) + ' (max ' + this.shredCap + ')'];
     }
   }
@@ -275,7 +370,10 @@ class Tower {
       const [label, read] = this.basicReader(c.id);
       const [b, a] = this.withPreview(() => { this.cards[c.id]++; }, read);
       out.preview.push([label, b, a]);
-      if (c.id !== 'dmg') {
+      if (this.isSupport) {
+        const [b2, a2] = this.withPreview(() => { this.cards[c.id]++; }, () => fmt(this.range) + ' m');
+        out.preview.push(['Etki alanı (Sv. bonusu)', b2, a2]);
+      } else if (c.id !== 'dmg') {
         const [b2, a2] = this.withPreview(() => { this.cards[c.id]++; }, () => fmt(this.damage));
         out.preview.push(['Hasar (Sv. bonusu)', b2, a2]);
       }
@@ -299,15 +397,17 @@ class Tower {
 
   drawCards(count = 3) {
     const pool = [];
-    for (const id of ['as', 'dmg', 'range', 'special']) {
-      if (id === 'range' && this.cards.range >= BASIC_CARDS.range.max) continue;
+    for (const id of this.basics) {
+      const info = this.basicCardInfo(id);
+      if (info.max && this.cards[id] >= info.max) continue;
       if (id === 'special' && this.type === 'storm' && this.bounces >= 12) continue;
       pool.push({ kind: 'basic', id, rarity: 'temel' });
     }
     for (const id of this.def.abilities) {
-      const ab = this.abilities[id];
+      const ab = this.abilities[id], d = ABILITY_DEFS[id];
       if (ab && ab.level >= CFG.abilityMaxLevel) continue;
-      pool.push({ kind: 'ability', id, rarity: ABILITY_DEFS[id].rarity });
+      if (d.requires && !this.abilities[d.requires]) continue;
+      pool.push({ kind: 'ability', id, rarity: d.rarity });
     }
     const luck = this.game.luck;
     const weight = (r) => Math.max(1, CFG.rarity[r].weight + CFG.luckShift[r] * luck);

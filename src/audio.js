@@ -215,6 +215,57 @@ class SoundManager {
         this.tone({ type: 'sawtooth', f0: 60, f1: 120, dur: 1.4, vol: 0.2 * v, attack: 0.3, q: 400 });
         this.noise({ dur: 1.4, vol: 0.12 * v, type: 'bandpass', f0: 200, f1: 1200, Q: 2, attack: 0.3 });
         break;
+      // ---- Ölüm Kulesi ----
+      case 'curse':
+        this.tone({ type: 'sine', f0: 520 * p, f1: 180 * p, dur: 0.22, vol: 0.08 * v });
+        this.tone({ type: 'triangle', f0: 260 * p, f1: 130 * p, dur: 0.25, vol: 0.05 * v, delay: 0.02 });
+        break;
+      case 'soul':
+        this.tone({ type: 'sine', f0: 880 * p, f1: 1500 * p, dur: 0.25, vol: 0.035 * v, attack: 0.05 });
+        break;
+      case 'gold_shot':
+        this.tone({ type: 'triangle', f0: 1100 * p, f1: 500, dur: 0.25, vol: 0.08 * v });
+        this.noise({ dur: 0.25, vol: 0.08 * v, type: 'bandpass', f0: 2500, f1: 800, Q: 1.5 });
+        break;
+      case 'crystal':
+        [1568, 2093, 2637].forEach((f, i) => this.tone({ type: 'sine', f0: f * p, dur: 0.22, vol: 0.06 * v, delay: i * 0.05 }));
+        break;
+      case 'zombie':
+        this.tone({ type: 'sawtooth', f0: 95 * p, f1: 70 * p, dur: 0.6, vol: 0.09 * v, attack: 0.1, q: 500 });
+        this.noise({ dur: 0.5, vol: 0.12 * v, f0: 400, f1: 150, attack: 0.08 });
+        break;
+      case 'zombie_hit': this.noise({ dur: 0.08, vol: 0.08 * v, type: 'bandpass', f0: 600 * p, Q: 1.5 }); break;
+      case 'death_wave':
+        this.noise({ dur: 1.0, vol: 0.22 * v, type: 'bandpass', f0: 300, f1: 1200, Q: 2, attack: 0.15 });
+        this.tone({ type: 'sine', f0: 220, f1: 110, dur: 0.9, vol: 0.12 * v, attack: 0.1 });
+        break;
+      case 'pit':
+        this.tone({ type: 'sine', f0: 70, f1: 35, dur: 0.9, vol: 0.4 * v });
+        this.noise({ dur: 0.8, vol: 0.25 * v, f0: 700, f1: 80 });
+        break;
+      case 'pit_fall': this.tone({ type: 'sine', f0: 600 * p, f1: 90, dur: 0.35, vol: 0.08 * v }); break;
+      // ---- Yaşam Kulesi ----
+      case 'vine':
+        this.noise({ dur: 0.45, vol: 0.2 * v, type: 'bandpass', f0: 1800, f1: 600, Q: 1.2, attack: 0.03 });
+        this.tone({ type: 'sine', f0: 160 * p, f1: 90, dur: 0.3, vol: 0.12 * v });
+        break;
+      case 'fairy':
+        [1760, 2349, 2794].forEach((f, i) => this.tone({ type: 'sine', f0: f * p, dur: 0.18, vol: 0.035 * v, delay: i * 0.04 }));
+        break;
+      case 'fairy_shot': this.tone({ type: 'sine', f0: 2600 * p, f1: 1800 * p, dur: 0.07, vol: 0.03 * v }); break;
+      case 'quake':
+        this.noise({ dur: 0.9, vol: 0.4 * v, f0: 500, f1: 60 });
+        this.tone({ type: 'sine', f0: 55, f1: 30, dur: 0.9, vol: 0.4 * v });
+        break;
+      case 'decay':
+        this.noise({ dur: 0.7, vol: 0.12 * v, type: 'bandpass', f0: 900, f1: 300, Q: 0.8, attack: 0.1 });
+        this.tone({ type: 'triangle', f0: 180 * p, f1: 120, dur: 0.6, vol: 0.05 * v, attack: 0.1 });
+        break;
+      case 'seed_pop':
+        this.tone({ type: 'sine', f0: 300 * p, f1: 900 * p, dur: 0.1, vol: 0.12 * v });
+        this.noise({ dur: 0.35, vol: 0.2 * v, f0: 1500, f1: 200 });
+        break;
+      case 'sprout': this.tone({ type: 'sine', f0: 600 * p, f1: 1200 * p, dur: 0.12, vol: 0.03 * v }); break;
     }
   }
 
@@ -278,6 +329,8 @@ SoundManager.GAPS = {
   hero_shot: 0.08, fire_shot: 0.07, ice_shot: 0.07, zap: 0.08, acid_shot: 0.08, splash: 0.08, hit: 0.05,
   explosion: 0.08, enemy_die: 0.04, coin: 0.06, freeze: 0.1, thunder: 0.25, bubble: 0.2, whoosh: 0.1,
   meteor_fall: 0.12, snowball: 0.1, saw: 0.15, wind: 0.5, fire_whoosh: 0.15, card_flip: 0.05,
+  curse: 0.09, soul: 0.07, gold_shot: 0.1, crystal: 0.08, zombie: 0.6, zombie_hit: 0.08, death_wave: 0.3,
+  pit: 0.3, pit_fall: 0.06, vine: 0.2, fairy: 0.3, fairy_shot: 0.06, quake: 0.3, decay: 0.4, seed_pop: 0.06, sprout: 0.25,
 };
 
 const Sound = new SoundManager();

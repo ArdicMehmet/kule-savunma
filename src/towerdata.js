@@ -30,12 +30,35 @@ const TOWER_TYPES = {
     special: { name: 'Aşındırma', icon: '🛡️', desc: 'Zırh azaltma gücü ve azaltma sınırı artar.' },
     abilities: ['poison_cloud', 'poison_bomb', 'acid_spray', 'acid_rain', 'contagion'],
   },
+  death: {
+    id: 'death', name: 'Ölüm Kulesi', icon: '💀', color: '#b26bff', hex: 0xa45cff,
+    desc: 'Tekli atışlar düşmanı lanetler. Lanetli düşman ölünce ruh kazanırsın; ruhlar kulenin ve yeteneklerinin hasarını artırır.',
+    base: { damage: 13, rate: 0.95, range: 9 },
+    special: { name: 'Ruh Hasadı', icon: '👻', desc: 'Lanetli düşmanlardan çıkan ruh sayısı +1.', max: 7 },
+    basics: ['as', 'range', 'special'],
+    abilities: ['graveyard', 'death_gold', 'boomer', 'death_wave', 'death_pit'],
+  },
+  life: {
+    id: 'life', name: 'Yaşam Kulesi', icon: '🌳', color: '#5fe08a', hex: 0x5fe08a,
+    desc: 'Ateş etmez. Etki alanındaki kuleleri güçlendirir (saldırı hızı, zehir, çağrılan yaratık hasarı) ve doğanın gücüyle savaşır.',
+    base: { damage: 0, rate: 0, range: 8 },
+    support: true,
+    basics: ['l_poison', 'l_haste', 'l_summon'],
+    abilities: ['vines', 'fairies', 'seismic', 'decay', 'seeds'],
+  },
 };
+
+const DEFAULT_BASICS = ['as', 'dmg', 'range', 'special'];
+// Ölüm Kulesi: ruh başına hasar bonusu (kule + yetenekler)
+const SOUL_DMG = 0.004;
 
 const BASIC_CARDS = {
   as: { name: 'Saldırı Hızı', icon: '💨', desc: 'Kulenin saldırı hızı +%12.' },
   dmg: { name: 'Hasar Artışı', icon: '⚔️', desc: 'Kulenin hasarı +%15. Yeteneklerin hasarını da artırır.' },
   range: { name: 'Menzil', icon: '🎯', desc: 'Kulenin menzili +%8.', max: 8 },
+  l_poison: { name: 'Zehirli Dikenler', icon: '🌿', desc: 'Etki alanındaki kulelerin her vuruşu %8 şansla zehir yükü bırakır.', max: 7 },
+  l_haste: { name: 'Doğanın Ritmi', icon: '🍃', desc: 'Etki alanındaki kulelerin saldırı hızı +%7.' },
+  l_summon: { name: 'Yaşam Bağı', icon: '💚', desc: 'Etki alanındaki kulelerin yetenekle çağırdığı yaratıkların (zombi, peri) hasarı +%25.' },
 };
 
 const ABILITY_DEFS = {
@@ -103,6 +126,38 @@ const ABILITY_DEFS = {
   contagion: { tower: 'acid', name: 'Bulaşıcı Reaksiyon', rarity: 'nadir', icon: '☣️',
     desc: 'PASİF: Zehirli bir düşman öldüğünde patlar ve üzerindeki zehir yüklerini çevresindeki düşmanlara bulaştırır.',
     upg: 'Patlama alanı ve bulaşan zehir yüzdesi artar.' },
+  // ---- Ölüm ----
+  graveyard: { tower: 'death', name: 'Mezarlık', rarity: 'orta', icon: '⚰️',
+    desc: 'Belli aralıklarla kulenin yanında zombiler doğar. Düşman yaklaşınca üstüne koşup savaşır, bir süre sonra ölürler. Zombi sayısı sınırlıdır.',
+    upg: 'Zombi sayısı artar, doğma süresi kısalır.' },
+  death_gold: { tower: 'death', name: 'Ölüm Altını', rarity: 'orta', icon: '🪙',
+    desc: 'Belli aralıklarla birkaç düşmana ekstra hasarlı atış yapar. Bu atışla ölenler fazladan ruh verir ve altın değerinde kristal düşürür.',
+    upg: 'Atış sayısı, düşen ruh ve kristal sayısı artar.' },
+  boomer: { tower: 'death', name: 'BOOM-er', rarity: 'nadir', icon: '💥', requires: 'graveyard',
+    desc: 'Zombiler savaşlarının sonunda yok olmak yerine patlayarak alan hasarı verir. (Mezarlık gerektirir)',
+    upg: 'Patlama hasarı artar.' },
+  death_wave: { tower: 'death', name: 'Ölüm Dalgası', rarity: 'orta', icon: '☠️',
+    desc: 'Düşmanların üzerine ilerleyen bir ruh dalgası yollar. Değdiği düşmanlara hasar verir ve onları lanetler.',
+    upg: 'Dalganın alanı ve hasarı artar.' },
+  death_pit: { tower: 'death', name: 'Ölüm Çukuru', rarity: 'nadir', icon: '🕳️',
+    desc: 'Kulenin yakınında, yol üzerinde rastgele çukurlar açar. Çukura düşen düşman anında ölür (bosslar düşmez). Çukurlar bir süre sonra kapanır.',
+    upg: 'Bekleme süresi azalır, çukurlar büyür.' },
+  // ---- Yaşam ----
+  vines: { tower: 'life', name: 'Zehirli Sarmaşıklar', rarity: 'orta', icon: '🌱',
+    desc: 'Düşmanların olduğu bölgeye zehirli sarmaşık atar. İçindekiler bir süre yerlerine sabitlenir ve üzerlerine zehir yükü biner.',
+    upg: 'Sarmaşık alanı artar.' },
+  fairies: { tower: 'life', name: 'Orman Sakinleri', rarity: 'orta', icon: '🧚',
+    desc: 'Kulenin etrafında düşmanlara ateş eden periler belirir. Belli sayıda atış yapınca kaybolurlar. Kule başına sınırlı sayıda peri olabilir.',
+    upg: 'Perilerin menzili ve sayısı artar.' },
+  seismic: { tower: 'life', name: 'Sismik Darbe', rarity: 'nadir', icon: '🪨',
+    desc: 'Düşmanlara bir toprak dalgası yollar. Dalgaya yakalanan düşmanlar geriye savrulur ve sersemler.',
+    upg: 'Sersemletme süresi ve savurma gücü artar.' },
+  decay: { tower: 'life', name: 'Çürüme', rarity: 'orta', icon: '🍂',
+    desc: 'Etki alanındaki düşmanlara çürüme uygular: saldırı güçleri azalır, kaleye ulaşırlarsa daha az hasar verirler.',
+    upg: 'Saldırı gücü azaltma etkisi artar.' },
+  seeds: { tower: 'life', name: 'Yaşam Tohumları', rarity: 'nadir', icon: '🌰',
+    desc: 'Düşmanların yanında tohumlar belirir. Herhangi bir kule yeteneği tohuma değerse patlar: alan hasarı ve zehir yükü verir. Kullanılmayan tohumlar kaybolur.',
+    upg: 'Hasar ve tohum sayısı artar.' },
 };
 
 // Her yetenek dosyası buraya { params, stats, update, onAcquire?, dispose? } kaydeder.

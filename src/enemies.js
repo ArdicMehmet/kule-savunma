@@ -43,6 +43,8 @@ class Enemy {
     this.rootT = 0; this.blockT = 0;
     this.poison = 0; this.poisonDps = 0; this.poisonT = 0; this.poisonSrc = null;
     this.shred = 0; this.shredT = 0;
+    this.curseT = 0; this.curseSrc = null; this.goldMark = null;
+    this.decayAmt = 0; this.decayT = 0; this.kb = 0;
     this.flash = 0; this.walk = rand(0, 6); this.fxT = rand(0, 1);
 
     this.mat = MAT.vc.clone();
@@ -88,6 +90,8 @@ class Enemy {
     if (src) src.totalDamage += dmg;
     this.hpBar.visible = true;
     this.hpFg.scale.x = Math.max(0.001, (this.hp / this.maxHp) * this.barW);
+    // Yaşam Tohumları: kule yetenekleri (temel atış ve DoT hariç) yakındaki tohumları patlatır
+    if (!dot && src && src.isTower && !opts.basic && this.game.seeds.length) this.game.triggerSeeds(this.x, this.z);
     if (this.hp <= 0) this.die(src);
     return dmg;
   }
@@ -128,9 +132,22 @@ class Enemy {
     if (this.shred < cap) this.shred = Math.min(cap, this.shred + amount);
     this.shredT = Math.max(this.shredT, dur);
   }
-  knockback(d) {
-    this.dist = Math.max(0, this.dist - (this.isBoss ? d * 0.3 : d));
+  knockback(d, smooth = false) {
+    d *= this.isBoss ? 0.3 : 1;
+    if (smooth) this.kb = Math.max(this.kb, d);
+    else this.dist = Math.max(0, this.dist - d);
   }
+  applyCurse(src, dur) {
+    if (this.dead) return;
+    this.curseT = Math.max(this.curseT, dur);
+    this.curseSrc = src;
+  }
+  applyDecay(amt, dur) {
+    if (this.dead) return;
+    if (amt >= this.decayAmt || this.decayT <= 0) this.decayAmt = amt;
+    this.decayT = Math.max(this.decayT, dur);
+  }
+  get leakDamage() { return this.T.dmg * (this.decayT > 0 ? 1 - this.decayAmt : 1); }
   pushBack(amount) {
     this.dist = Math.max(0, this.dist - amount * (this.isBoss ? 0.4 : 1));
     this.blockT = 0.1;
@@ -160,6 +177,7 @@ class Enemy {
       const k = Math.max(0.01, this.dying / 0.35);
       this.mesh.scale.setScalar(this.T.scale * k);
       this.mesh.rotation.x += dt * 4;
+      if (this.sink) this.group.position.y -= dt * 6;
       if (this.dying <= 0) this.removed = true;
       return;
     }
@@ -168,6 +186,9 @@ class Enemy {
     if (this.blockT > 0) this.blockT -= dt;
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slowAmt = 0; }
     if (this.shredT > 0) { this.shredT -= dt; if (this.shredT <= 0) this.shred = 0; }
+    if (this.curseT > 0) this.curseT -= dt;
+    if (this.decayT > 0) { this.decayT -= dt; if (this.decayT <= 0) this.decayAmt = 0; }
+    if (this.kb > 0) { const s = Math.min(this.kb, 16 * dt); this.dist = Math.max(0, this.dist - s); this.kb -= s; }
     if (this.burnT > 0) {
       this.burnT -= dt;
       this.takeDamage(this.burnDps * dt, { dot: true, src: this.burnSrc });
@@ -213,6 +234,7 @@ class Enemy {
       this.mesh.position.y = bob * 0.1 * sc;
       this.mesh.rotation.z = s * 0.09;
     }
+    if (this.kb > 0) this.mesh.position.y += Math.min(0.7, this.kb * 0.35);
   }
 
   updateVisuals(dt, time) {
@@ -223,6 +245,8 @@ class Enemy {
     if (this.slowAmt > 0) { b += 0.5; g += 0.22; }
     if (this.rootT > 0 && this.pullT <= 0) { b += 0.5; g += 0.45; r += 0.25; }
     if (this.shred > 0) { r += 0.12; g += 0.1; }
+    if (this.curseT > 0) { const f = 0.75 + 0.25 * Math.sin(time * 6 + this.walk); r += 0.32 * f; b += 0.6 * f; }
+    if (this.decayT > 0) { r += 0.2; g += 0.1; }
     this.mat.emissive.setRGB(Math.min(r, 1), Math.min(g, 1), Math.min(b, 1));
 
     this.fxT -= dt;
@@ -237,6 +261,12 @@ class Enemy {
       }
       if (this.slowAmt > 0 && Math.random() < 0.4) {
         this.game.fxA.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.3, 1.2), z: this.z + rand(-0.35, 0.35), vy: rand(-0.3, 0.3), life: 0.5, size: rand(0.15, 0.25), size2: 0, color: 0xbff0ff, alpha: 0.9 });
+      }
+      if (this.curseT > 0 && Math.random() < 0.35) {
+        this.game.fxA.emit({ x: this.x + rand(-0.3, 0.3), y: h * rand(0.6, 1.4), z: this.z + rand(-0.3, 0.3), vy: rand(0.6, 1.2), life: 0.7, size: rand(0.2, 0.32), size2: 0, color: choice([0xa45cff, 0x7a2ad0, 0xd8b0ff]), alpha: 0.75 });
+      }
+      if (this.decayT > 0 && Math.random() < 0.3) {
+        this.game.fxN.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.8, 1.3), z: this.z + rand(-0.35, 0.35), vx: rand(-0.4, 0.4), vy: rand(-0.6, -0.2), life: 0.9, size: rand(0.14, 0.22), size2: 0.08, color: choice([0x8a6a2a, 0x6a4a1e, 0xa8803a]), alpha: 0.85 });
       }
     }
   }
