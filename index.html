@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kule Savunması — Kalenin Muhafızı</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game-root"></div>
+
+<div id="hud" class="hidden">
+  <div id="hud-top">
+    <div class="hud-box gold"><span class="ico">💰</span><span id="gold-val">0</span></div>
+    <div class="hud-box castle"><span class="ico">🏰</span><div class="bar"><div id="castle-bar"></div></div><span id="castle-val">30</span></div>
+    <div class="hud-box wave"><div id="wave-val">Dalga 0</div><div id="wave-status">Hazırlık</div></div>
+    <button id="btn-call" class="hud-btn call">⚔️ Dalgayı Çağır <kbd>Space</kbd></button>
+    <div class="spacer"></div>
+    <button id="btn-shop" class="hud-btn">🛒 Mağaza <kbd>B</kbd></button>
+    <button id="btn-speed" class="hud-btn">⏩ 1x <kbd>F</kbd></button>
+    <button id="btn-sound" class="hud-btn">🔊 <kbd>M</kbd></button>
+    <button id="btn-pause" class="hud-btn">⏸ <kbd>P</kbd></button>
+  </div>
+
+  <div id="prompt" class="hidden"></div>
+  <div id="tower-panel" class="hidden"></div>
+
+  <div id="shop-panel" class="hidden">
+    <div class="panel-head"><span>🛒 Mağaza</span><button class="close" id="shop-close">✕</button></div>
+    <div id="shop-items"></div>
+    <div class="panel-foot">Kapatmak için <kbd>B</kbd> veya <kbd>Esc</kbd></div>
+  </div>
+
+  <div id="minimap-wrap"><canvas id="minimap" width="220" height="184"></canvas></div>
+  <div id="help-line">
+    <kbd>WASD</kbd> Hareket · <kbd>Shift</kbd> Koş · <kbd>E</kbd> Etkileşim · <kbd>B</kbd> Mağaza · <kbd>Tekerlek</kbd> Yakınlaştır · <kbd>Tık</kbd> Kule bilgisi
+  </div>
+  <div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+  <div id="floaters"></div>
+  <div id="toast"></div>
+  <div id="vignette"></div>
+</div>
+
+<div id="card-modal" class="overlay hidden">
+  <div class="modal">
+    <h2 id="card-title">Kart Seç</h2>
+    <div id="card-sub"></div>
+    <div id="cards"></div>
+    <div id="card-actions">
+      <button id="btn-reroll" class="btn">🎲 Yeniden Çek <span id="reroll-cost"></span> <kbd>R</kbd></button>
+    </div>
+  </div>
+</div>
+
+<div id="start-screen" class="overlay">
+  <div class="menu">
+    <div class="logo">🏰</div>
+    <h1>KULE SAVUNMASI</h1>
+    <div class="subtitle">Kalenin son muhafızı sensin!</div>
+    <button id="btn-start" class="btn big">▶ Oyuna Başla</button>
+    <div class="howto">
+      <div><b>1.</b> <kbd>B</kbd> ile mağazadan <b>Kule Temeli</b> al, kahramanının yakınında yolun kenarına yerleştir.</div>
+      <div><b>2.</b> Temelin yanına gidip <kbd>E</kbd> bas: rastgele gelen <b>3 kuleden birini</b> seç.</div>
+      <div><b>3.</b> Kuleyi altınla yükselt: her yükseltmede <b>şansa bağlı 3 kart</b> çıkar (Temel / Orta / Nadir).</div>
+      <div><b>4.</b> Dalgalar giderek güçlenir; her 5 dalgada bir <b>Boss</b> gelir. Kaleni koru!</div>
+    </div>
+    <div id="best-record"></div>
+  </div>
+</div>
+
+<div id="pause-screen" class="overlay hidden">
+  <div class="menu small">
+    <h1>Duraklatıldı</h1>
+    <button id="btn-resume" class="btn big">▶ Devam Et</button>
+    <label class="opt"><input type="checkbox" id="opt-music" checked> 🎵 Müzik</label>
+    <label class="opt"><input type="checkbox" id="opt-sfx" checked> 🔊 Ses efektleri</label>
+    <button id="btn-restart" class="btn">↻ Yeniden Başlat</button>
+  </div>
+</div>
+
+<div id="gameover-screen" class="overlay hidden">
+  <div class="menu">
+    <h1 class="red">KALE DÜŞTÜ!</h1>
+    <div id="go-stats"></div>
+    <button id="btn-again" class="btn big">↻ Tekrar Oyna</button>
+  </div>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script src="src/config.js"></script>
+<script src="src/utils.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/particles.js"></script>
+<script src="src/models.js"></script>
+<script src="src/world.js"></script>
+<script src="src/enemies.js"></script>
+<script src="src/towerdata.js"></script>
+<script src="src/effects.js"></script>
+<script src="src/abilities_fire.js"></script>
+<script src="src/abilities_ice.js"></script>
+<script src="src/abilities_storm.js"></script>
+<script src="src/abilities_acid.js"></script>
+<script src="src/towers.js"></script>
+<script src="src/hero.js"></script>
+<script src="src/waves.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>
