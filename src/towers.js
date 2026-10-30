@@ -69,7 +69,7 @@ class Tower {
       return;
     }
     const sp = (t) => (this.type === t ? c.special : 0);
-    const soulMult = this.type === 'death' ? 1 + SOUL_DMG * this.souls : 1;
+    const soulMult = this.type === 'death' ? 1 + soulBonus(this.souls) : 1;
     this.dmgMult = (1 + 0.15 * c.dmg) * (1 + 0.04 * (this.level - 1)) * soulMult;
     this.damage = b.damage * this.dmgMult;
     this.rate = b.rate * (1 + 0.12 * c.as);

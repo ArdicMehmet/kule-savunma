@@ -33,7 +33,7 @@ const TOWER_TYPES = {
   death: {
     id: 'death', name: 'Ölüm Kulesi', icon: '💀', color: '#b26bff', hex: 0xa45cff,
     desc: 'Tekli atışlar düşmanı lanetler. Lanetli düşman ölünce ruh kazanırsın; ruhlar kulenin ve yeteneklerinin hasarını artırır.',
-    base: { damage: 13, rate: 0.95, range: 9 },
+    base: { damage: 15, rate: 0.95, range: 9 },
     special: { name: 'Ruh Hasadı', icon: '👻', desc: 'Lanetli düşmanlardan çıkan ruh sayısı +1.', max: 7 },
     basics: ['as', 'range', 'special'],
     abilities: ['graveyard', 'death_gold', 'boomer', 'death_wave', 'death_pit'],
@@ -49,8 +49,8 @@ const TOWER_TYPES = {
 };
 
 const DEFAULT_BASICS = ['as', 'dmg', 'range', 'special'];
-// Ölüm Kulesi: ruh başına hasar bonusu (kule + yetenekler)
-const SOUL_DMG = 0.004;
+// Ölüm Kulesi: ruhlara göre hasar bonusu (kule + yetenekler); azalan getiriyle sınırsız artar
+const soulBonus = (souls) => 0.55 * Math.log(1 + souls / 40);
 
 const BASIC_CARDS = {
   as: { name: 'Saldırı Hızı', icon: '💨', desc: 'Kulenin saldırı hızı +%12.' },

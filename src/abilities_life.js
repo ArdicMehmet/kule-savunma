@@ -77,7 +77,7 @@ class VinesFx extends Fx {
 }
 
 ABILITY_IMPL.vines = {
-  params(L, tw) { return { radius: Math.min(4.2, 1.8 + 0.27 * (L - 1)), root: 2, dur: 3.5, stacks: 2, cd: 9 }; },
+  params(L, tw) { return { radius: Math.min(4.2, 1.8 + 0.27 * (L - 1)), root: 2, dur: 3.5, stacks: 1, cd: 10 }; },
   stats(L, tw) {
     const p = this.params(L, tw);
     return [['Alan', fmt(p.radius) + ' m'], ['Sabitleme', sec(p.root)], ['Zehir yükü', p.stacks + ' / 0.5 sn'], ['Bekleme', sec(p.cd)]];
@@ -373,7 +373,7 @@ class SeedFx extends Fx {
 
 ABILITY_IMPL.seeds = {
   params(L, tw) {
-    return { max: Math.min(8, 1 + L), dmg: 45 * tw.dmgMult * (1 + 0.3 * (L - 1)), radius: 2.4, stacks: 3, cd: 2.5, life: 14 };
+    return { max: Math.min(8, 1 + L), dmg: 30 * tw.dmgMult * (1 + 0.3 * (L - 1)), radius: 2.4, stacks: 2, cd: 3.5, life: 14 };
   },
   stats(L, tw) {
     const p = this.params(L, tw);

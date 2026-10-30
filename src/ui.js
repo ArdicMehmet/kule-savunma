@@ -217,7 +217,7 @@ class UI {
       } else {
         const sp = t.basicReader('special');
         rows = [['Hasar', fmt(t.damage)], ['Hız', fmt(t.currentRate) + '/sn'], ['Menzil', fmt(t.range) + ' m'], [sp[0], sp[1]()]];
-        if (t.type === 'death') rows.push(['👻 Ruhlar', fmt(t.souls)], ['Ruh bonusu', '+' + pct(SOUL_DMG * t.souls)]);
+        if (t.type === 'death') rows.push(['👻 Ruhlar', fmt(t.souls)], ['Ruh bonusu', '+' + pct(soulBonus(t.souls))]);
         rows.push(['Toplam hasar', fmt(t.totalDamage)], ['Öldürme', t.kills]);
       }
       body += `<div class="tp-desc">${t.def.desc}</div><div class="tp-stats">` +

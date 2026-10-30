@@ -170,7 +170,7 @@ class ZombieFx extends Fx {
       } else {
         this.atkT -= dt;
         if (this.atkT <= 0) {
-          this.atkT = 0.8;
+          this.atkT = 0.7;
           this.swing = 1;
           e.takeDamage(ABILITY_IMPL.graveyard.hitDmg(tw), { src: tw });
           e.applySlow(0.35, 0.9);
@@ -202,8 +202,8 @@ class ZombieFx extends Fx {
 }
 
 ABILITY_IMPL.graveyard = {
-  params(L, tw) { return { max: Math.min(10, 1 + L), cd: Math.max(1.2, 5 * Math.pow(0.88, L - 1)), life: 10 }; },
-  hitDmg(tw) { return 7 * tw.dmgMult * tw.buffSummon; },
+  params(L, tw) { return { max: Math.min(10, 2 + L), cd: Math.max(1.2, 5 * Math.pow(0.88, L - 1)), life: 10 }; },
+  hitDmg(tw) { return 11 * tw.dmgMult * tw.buffSummon; },
   stats(L, tw) {
     const p = this.params(L, tw);
     return [['Zombi sayısı', p.max], ['Doğma süresi', sec(p.cd)], ['Vuruş hasarı', fmt(this.hitDmg(tw))]];
@@ -222,7 +222,7 @@ ABILITY_IMPL.graveyard = {
 
 // ---------------- BOOM-er (pasif) ----------------
 ABILITY_IMPL.boomer = {
-  params(L, tw) { return { dmg: 34 * tw.dmgMult * tw.buffSummon * (1 + 0.35 * (L - 1)), radius: 2.4 + 0.08 * (L - 1) }; },
+  params(L, tw) { return { dmg: 40 * tw.dmgMult * tw.buffSummon * (1 + 0.35 * (L - 1)), radius: 2.4 + 0.08 * (L - 1) }; },
   stats(L, tw) { const p = this.params(L, tw); return [['Patlama hasarı', fmt(p.dmg)], ['Patlama alanı', fmt(p.radius) + ' m']]; },
   update() {},
 };
@@ -230,7 +230,7 @@ ABILITY_IMPL.boomer = {
 // ---------------- Ölüm Altını ----------------
 ABILITY_IMPL.death_gold = {
   params(L, tw) {
-    return { shots: 1 + Math.floor(L / 2), souls: 1 + L, crystals: 1 + Math.floor((L - 1) / 3), dmg: tw.damage * 2.5, cd: 7 };
+    return { shots: 2 + Math.floor((L - 1) / 2), souls: 1 + L, crystals: 1 + Math.floor((L - 1) / 3), dmg: tw.damage * 4, cd: 6 };
   },
   stats(L, tw) {
     const p = this.params(L, tw);
@@ -315,7 +315,7 @@ class DeathWaveFx extends Fx {
 }
 
 ABILITY_IMPL.death_wave = {
-  params(L, tw) { return { dmg: 26 * tw.dmgMult * (1 + 0.3 * (L - 1)), width0: 2.6 + 0.35 * (L - 1), cd: 9, speed: 10, dist: tw.range + 4 + 0.3 * (L - 1) }; },
+  params(L, tw) { return { dmg: 32 * tw.dmgMult * (1 + 0.3 * (L - 1)), width0: 3 + 0.35 * (L - 1), cd: 9, speed: 10, dist: tw.range + 4 + 0.3 * (L - 1) }; },
   stats(L, tw) { const p = this.params(L, tw); return [['Hasar', fmt(p.dmg)], ['Genişlik', fmt(p.width0) + ' m'], ['Mesafe', fmt(p.dist) + ' m'], ['Bekleme', sec(p.cd)]]; },
   update(tw, ab, dt) {
     const p = this.params(ab.level, tw);
@@ -334,10 +334,9 @@ ABILITY_IMPL.death_wave = {
 // ---------------- Ölüm Çukuru ----------------
 const _rp = { x: 0, z: 0, tx: 0, tz: 1 };
 function roadPointsNear(game, x, z, range) {
-  const out = [], r2 = range * range;
-  for (const pt of game.world.portals) {
-    if (!pt.active) continue;
-    const path = pt.path;
+  const out = [], r2 = range * range, wave = Math.max(1, game.waves.wave);
+  for (const path of game.world.paths) {
+    if (path.def.unlock > wave) continue;
     for (let d = 0; d < path.length; d += 1.5) {
       path.sample(d, _rp);
       if (dist2(_rp.x, _rp.z, x, z) <= r2) out.push({ x: _rp.x, z: _rp.z, tx: _rp.tx, tz: _rp.tz });
@@ -349,7 +348,7 @@ function roadPointsNear(game, x, z, range) {
 class DeathPitFx extends Fx {
   constructor(game, tw, x, z, p) {
     super(game);
-    this.tw = tw; this.x = x; this.z = z; this.r = p.radius; this.life = p.dur;
+    this.tw = tw; this.x = x; this.z = z; this.r = p.radius; this.life = p.dur; this.left = p.cap;
     this.hole = this.add(makeDecal(TEX.soft, 0x000000, 0.95, false));
     this.hole.position.set(x, 0.075, z);
     this.swirl = this.add(makeDecal(TEX.swirl, 0x7a2ad0, 0.8));
@@ -374,16 +373,19 @@ class DeathPitFx extends Fx {
       const a = rand(0, Math.PI * 2);
       g.fxA.emit({ x: this.x + Math.cos(a) * s, y: 0.15, z: this.z + Math.sin(a) * s, vx: -Math.cos(a) * 0.6, vy: rand(0.8, 1.8), vz: -Math.sin(a) * 0.6, life: 0.6, size: rand(0.18, 0.3), size2: 0, color: choice(DEATH_COLORS), alpha: 0.8 });
     }
-    if (open > 0.6 && !this.tw.removed) {
+    if (open > 0.6 && this.left > 0 && !this.tw.removed) {
       for (const e of g.enemiesInRadius(this.x, this.z, s + 1)) {
-        if (e.isBoss) continue;
+        if (e.isBoss || e.dead || e.sink) continue;
         if (dist(e.x, e.z, this.x, this.z) <= s * 0.85 + e.radius * 0.4) this.swallow(e);
+        if (this.left <= 0) { this.life = Math.min(this.life, this.t + 0.45); break; }
       }
     }
     return true;
   }
   swallow(e) {
     const g = this.game;
+    if (e.dead || e.sink || e.isBoss || this.left <= 0) return;
+    this.left--;
     e.sink = true;
     e.takeDamage(e.hp + 1, { src: this.tw, dot: true });
     g.fxA.burst(e.x, 0.5, e.z, 12, { color: choice(DEATH_COLORS), speed: 2.5, life: 0.5, size: 0.35, gravity: -2 });
@@ -393,11 +395,11 @@ class DeathPitFx extends Fx {
 
 ABILITY_IMPL.death_pit = {
   params(L, tw) {
-    return { cd: Math.max(4, 15 * Math.pow(0.88, L - 1)), radius: Math.min(1.9, 0.9 + 0.11 * (L - 1)), dur: 4.5, count: L >= 6 ? 2 : 1 };
+    return { cd: Math.max(5, 15 * Math.pow(0.89, L - 1)), radius: Math.min(1.6, 0.9 + 0.08 * (L - 1)), dur: 4.5, count: L >= 6 ? 2 : 1, cap: 3 + Math.floor(L / 2) };
   },
   stats(L, tw) {
     const p = this.params(L, tw);
-    return [['Bekleme', sec(p.cd)], ['Çukur boyutu', fmt(p.radius * 2) + ' m'], ['Çukur sayısı', p.count], ['Süre', sec(p.dur)]];
+    return [['Bekleme', sec(p.cd)], ['Çukur boyutu', fmt(p.radius * 2) + ' m'], ['Çukur sayısı', p.count], ['Kapasite', p.cap + ' düşman']];
   },
   update(tw, ab, dt) {
     const p = this.params(ab.level, tw);
