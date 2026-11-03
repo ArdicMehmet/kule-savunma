@@ -17,14 +17,24 @@ const ENEMY_TYPES = {
 };
 
 const BOSS_DEFS = [
-  { id: 'brute', name: 'Taş Efendisi', icon: '🗿', hp: 1700, armor: 28, gold: 180, dmg: 7, immune: null, ability: null, model: 'brute', color: 0x8a3030, scale: 1.7, height: 4.3 },
-  { id: 'dragon', name: 'Kor Ejderha', icon: '🐉', hp: 2100, armor: 22, gold: 240, dmg: 8, immune: 'fire', ability: 'stun', model: 'dragon', color: 0xc43a18, scale: 1.55, height: 3.4 },
-  { id: 'frost', name: 'Buz Titanı', icon: '🧊', hp: 2500, armor: 38, gold: 300, dmg: 8, immune: 'ice', ability: 'freeze_wave', model: 'frostboss', color: 0x7ec8e8, scale: 1.6, height: 3.6 },
-  { id: 'storm', name: 'Fırtına Lordu', icon: '⚡', hp: 2900, armor: 24, gold: 360, dmg: 9, immune: 'storm', ability: 'stun', model: 'boss', color: 0xb48cff, scale: 1.7, height: 4.3 },
-  { id: 'venom', name: 'Veba Şamanı', icon: '☠️', hp: 3400, armor: 18, gold: 430, dmg: 9, immune: 'acid', ability: 'stun', model: 'witch', color: 0x8cff4a, scale: 1.85, height: 3.6 },
-  { id: 'lich', name: 'Ruh Lich', icon: '💀', hp: 4000, armor: 30, gold: 520, dmg: 10, immune: 'death', ability: 'freeze_wave', model: 'boss', color: 0xa45cff, scale: 1.75, height: 4.4 },
-  { id: 'root', name: 'Kök Dev', icon: '🌳', hp: 4700, armor: 42, gold: 620, dmg: 11, immune: 'life', ability: 'stun', model: 'golem', color: 0x5fe08a, scale: 1.7, height: 3.8 },
+  { id: 'brute', name: 'Taş Efendisi', icon: '🗿', hp: 1700, armor: 28, gold: 180, dmg: 7, immune: null, ability: null, model: 'brute', color: 0x8a8478, scale: 2.35, height: 5.6, radius: 1.65 },
+  { id: 'dragon', name: 'Kor Ejderha', icon: '🐉', hp: 2100, armor: 22, gold: 240, dmg: 8, immune: 'fire', ability: 'stun', model: 'dragon', color: 0xc43a18, scale: 2.55, height: 5.4, radius: 1.8 },
+  { id: 'frost', name: 'Buz Titanı', icon: '🧊', hp: 2500, armor: 38, gold: 300, dmg: 8, immune: 'ice', ability: 'freeze_wave', model: 'frostboss', color: 0x7ec8e8, scale: 2.4, height: 5.8, radius: 1.75 },
+  { id: 'storm', name: 'Fırtına Lordu', icon: '⚡', hp: 2900, armor: 24, gold: 360, dmg: 9, immune: 'storm', ability: 'stun', model: 'stormboss', color: 0xb48cff, scale: 2.4, height: 6.0, radius: 1.7 },
+  { id: 'venom', name: 'Veba Şamanı', icon: '☠️', hp: 3400, armor: 18, gold: 430, dmg: 9, immune: 'acid', ability: 'stun', model: 'venomboss', color: 0x8cff4a, scale: 2.25, height: 5.5, radius: 1.6 },
+  { id: 'lich', name: 'Ruh Lich', icon: '💀', hp: 4000, armor: 30, gold: 520, dmg: 10, immune: 'death', ability: 'freeze_wave', model: 'lichboss', color: 0xa45cff, scale: 2.5, height: 6.2, radius: 1.7 },
+  { id: 'root', name: 'Kök Dev', icon: '🌳', hp: 4700, armor: 42, gold: 620, dmg: 11, immune: 'life', ability: 'stun', model: 'rootboss', color: 0x5fe08a, scale: 2.55, height: 6.1, radius: 1.85 },
 ];
+function normImmunes(extra, bd) {
+  extra = extra || {};
+  let list = [];
+  if (Array.isArray(extra.immunes) && extra.immunes.length) list = extra.immunes.slice();
+  else if (Array.isArray(extra.immune)) list = extra.immune.slice();
+  else if (extra.immune) list = [extra.immune];
+  else if (bd && Array.isArray(bd.immune)) list = bd.immune.slice();
+  else if (bd && bd.immune) list = [bd.immune];
+  return [...new Set(list.filter(Boolean))].slice(0, 2);
+}
 function bossDefForWave(n) {
   const i = Math.max(0, Math.round(n / 10) - 1);
   const d = BOSS_DEFS[Math.min(i, BOSS_DEFS.length - 1)];
@@ -74,7 +84,8 @@ class Enemy {
     const bd = extra.boss;
     const T = bd ? {
       ...base, name: bd.name, icon: bd.icon, hp: bd.hp, armor: bd.armor, gold: bd.gold, dmg: bd.dmg || base.dmg,
-      color: bd.color, scale: bd.scale || base.scale, height: bd.height || base.height, boss: true, armored: true,
+      color: bd.color, scale: bd.scale || base.scale, height: bd.height || base.height,
+      radius: bd.radius || base.radius, boss: true, armored: true,
     } : base;
     this.game = game; this.type = typeId; this.T = T; this.path = path; this.wave = wave; this.bossDef = bd || null;
     this.maxHp = this.hp = T.hp * WAVE_SCALE.hp(wave) * (game.plagueMult || 1);
@@ -95,7 +106,8 @@ class Enemy {
     this.curseT = 0; this.curseSrc = null; this.goldMark = null;
     this.decayAmt = 0; this.decayT = 0; this.kb = 0;
     this.flash = 0; this.walk = rand(0, 6); this.fxT = rand(0, 1);
-    this.immune = extra.immune || (bd && bd.immune) || null;
+    this.immunes = normImmunes(extra, bd);
+    this.immune = this.immunes[0] || null;
     this.immFlash = 0;
     this.mounted = !!T.mounted;
     this.summoner = extra.summoner || null;
@@ -111,7 +123,7 @@ class Enemy {
     this.group = new THREE.Group();
     this.group.add(this.mesh);
 
-    const w = this.isBoss ? 2.6 : (T.scale > 1.2 ? 1.5 : 1.1);
+    const w = this.isBoss ? 3.4 : (T.scale > 1.2 ? 1.5 : 1.1);
     this.barW = w;
     this.hpBar = new THREE.Group();
     const bg = new THREE.Mesh(HPBAR.geoBg, HPBAR.matBg);
@@ -122,17 +134,20 @@ class Enemy {
     this.hpFg.scale.x = w;
     bg.renderOrder = 30; this.hpFg.renderOrder = 31;
     this.hpBar.add(bg, this.hpFg);
-    this.hpBar.position.y = T.height + 0.4;
+    this.hpBar.position.y = T.height + 0.45;
     this.hpBar.visible = this.isBoss;
-    if (this.isBoss) this.hpBar.scale.setScalar(1.3);
+    if (this.isBoss) this.hpBar.scale.setScalar(1.45);
     this.group.add(this.hpBar);
 
-    if (this.immune && TOWER_TYPES[this.immune]) {
-      const hex = TOWER_TYPES[this.immune].hex;
-      this.immGlow = glowSprite(hex, this.isBoss ? 2.6 : 1.55, 0.5);
-      this.immGlow.position.y = 0.15;
-      this.group.add(this.immGlow);
-    }
+    this.immGlows = [];
+    this.immunes.forEach((id, i) => {
+      if (!TOWER_TYPES[id]) return;
+      const spr = glowSprite(TOWER_TYPES[id].hex, this.isBoss ? 3.2 : 1.55, 0.5);
+      spr.position.set((i - (this.immunes.length - 1) / 2) * 0.5, 0.18, 0);
+      this.group.add(spr);
+      this.immGlows.push(spr);
+    });
+    this.immGlow = this.immGlows[0] || null;
 
     game.scene.add(this.group);
     this.updatePosition(0);
@@ -141,7 +156,7 @@ class Enemy {
   get remaining() { return this.path.length - this.dist; }
   get targetable() { return !this.dead; }
   get visHeight() { return this.mounted ? this.T.height : (this.T.riderHeight || this.T.height); }
-  immuneTo(elem) { return !!(elem && this.immune === elem); }
+  immuneTo(elem) { return !!(elem && this.immunes && this.immunes.indexOf(elem) >= 0); }
   blockedBy(src, elem) { return this.immuneTo(elem || damageElem({ src })); }
 
   takeDamage(amount, opts) {
@@ -323,7 +338,7 @@ class Enemy {
     for (const e of g.enemies) if (!e.dead && e.type === 'skeleton') skelN++;
     if (skelN >= 24) return;
     const e = g.spawnEnemy('skeleton', this.path, this.wave, this.lateral + rand(-0.5, 0.5), {
-      dist: Math.max(0, this.dist - rand(0.4, 1.2)), summoner: this, summoned: true, immune: this.immune,
+      dist: Math.max(0, this.dist - rand(0.4, 1.2)), summoner: this, summoned: true,
     });
     this.summons++;
     g.fxA.burst(e.x, 0.6, e.z, 12, { color: 0xd8b0ff, speed: 2.2, life: 0.45, size: 0.22, gravity: 2 });
@@ -429,12 +444,15 @@ class Enemy {
 
   updateVisuals(dt, time) {
     let r = 0, g = 0, b = 0;
-    if (this.immune && TOWER_TYPES[this.immune]) {
-      const hex = TOWER_TYPES[this.immune].hex;
-      const p = 0.18 + 0.08 * Math.sin(time * 3 + this.walk);
-      r += ((hex >> 16) & 255) / 255 * p;
-      g += ((hex >> 8) & 255) / 255 * p;
-      b += (hex & 255) / 255 * p;
+    if (this.immunes && this.immunes.length) {
+      const p = (0.16 + 0.07 * Math.sin(time * 3 + this.walk)) / this.immunes.length;
+      for (const id of this.immunes) {
+        if (!TOWER_TYPES[id]) continue;
+        const hex = TOWER_TYPES[id].hex;
+        r += ((hex >> 16) & 255) / 255 * p;
+        g += ((hex >> 8) & 255) / 255 * p;
+        b += (hex & 255) / 255 * p;
+      }
     }
     if (this.flash > 0) { r += 0.7; g += 0.7; b += 0.7; }
     if (this.immFlash > 0) { r += 0.4; g += 0.4; b += 0.4; }
@@ -448,10 +466,12 @@ class Enemy {
     if (this.decayT > 0) { r += 0.2; g += 0.1; }
     this.mat.emissive.setRGB(Math.min(r, 1), Math.min(g, 1), Math.min(b, 1));
 
-    if (this.immGlow) {
-      const s = (this.isBoss ? 2.6 : 1.55) * (1 + 0.12 * Math.sin(time * 4 + this.walk));
-      this.immGlow.scale.set(s, s, 1);
-      this.immGlow.material.opacity = 0.4 + 0.18 * Math.sin(time * 5);
+    if (this.immGlows && this.immGlows.length) {
+      this.immGlows.forEach((spr, i) => {
+        const s = (this.isBoss ? 3.2 : 1.55) * (1 + 0.12 * Math.sin(time * 4 + this.walk + i));
+        spr.scale.set(s, s, 1);
+        spr.material.opacity = 0.4 + 0.18 * Math.sin(time * 5 + i);
+      });
     }
 
     this.fxT -= dt;
@@ -473,8 +493,9 @@ class Enemy {
       if (this.decayT > 0 && Math.random() < 0.3) {
         this.game.fxN.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.8, 1.3), z: this.z + rand(-0.35, 0.35), vx: rand(-0.4, 0.4), vy: rand(-0.6, -0.2), life: 0.9, size: rand(0.14, 0.22), size2: 0.08, color: choice([0x8a6a2a, 0x6a4a1e, 0xa8803a]), alpha: 0.85 });
       }
-      if (this.immune && Math.random() < 0.25) {
-        const hex = TOWER_TYPES[this.immune] ? TOWER_TYPES[this.immune].hex : 0xffffff;
+      if (this.immunes && this.immunes.length && Math.random() < 0.25) {
+        const id = choice(this.immunes);
+        const hex = TOWER_TYPES[id] ? TOWER_TYPES[id].hex : 0xffffff;
         this.game.fxA.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.2, 1.1), z: this.z + rand(-0.35, 0.35), vy: rand(0.4, 1.1), life: 0.5, size: rand(0.12, 0.2), size2: 0, color: hex, alpha: 0.7 });
       }
     }

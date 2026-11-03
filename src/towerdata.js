@@ -173,7 +173,7 @@ const sec = (v) => v.toFixed(1) + ' sn';
 const pct = (v) => '%' + Math.round(v * 100);
 
 // Yeni kule tipi eklenince bağışıklık da otomatik açılır (dalga 5, 7, 9, 12, 15, 18, ...)
-const ELEMENT_UNLOCK = [5, 7, 9, 12, 15, 18, 21, 24];
+const ELEMENT_UNLOCK = [8, 11, 14, 17, 20, 23, 26, 29];
 function elementUnlockWave(id) {
   const i = Object.keys(TOWER_TYPES).indexOf(id);
   if (i < 0) return 99;

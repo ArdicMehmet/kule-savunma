@@ -35,7 +35,8 @@ class WaveManager {
     while (this.queue.length && this.queue[0].t <= this.t) {
       const s = this.queue.shift();
       const extra = {};
-      if (s.immune) extra.immune = s.immune;
+      if (s.immunes && s.immunes.length) extra.immunes = s.immunes;
+      else if (s.immune) extra.immune = s.immune;
       if (s.boss) extra.boss = s.boss;
       this.game.spawnEnemy(s.type, s.path, this.wave, s.lateral, extra);
     }
@@ -131,10 +132,12 @@ class WaveManager {
   summarize(list, n) {
     const map = {};
     for (const s of list) {
-      const key = s.boss ? 'boss:' + s.boss.id : s.type;
+      const ims = s.immunes && s.immunes.length ? s.immunes : (s.immune ? [s.immune] : []);
+      const imKey = ims.slice().sort().join('+');
+      const key = (s.boss ? 'boss:' + s.boss.id : s.type) + '|' + imKey;
       if (!map[key]) map[key] = { id: s.type, boss: s.boss || null, count: 0, immunes: {} };
       map[key].count++;
-      if (s.immune) map[key].immunes[s.immune] = (map[key].immunes[s.immune] || 0) + 1;
+      for (const im of ims) map[key].immunes[im] = (map[key].immunes[im] || 0) + 1;
     }
     const units = Object.values(map).map((u) => {
       const T = ENEMY_TYPES[u.id];
@@ -163,22 +166,37 @@ class WaveManager {
   }
 
   assignImmunities(list, n) {
+    if (n < 8) return;
     const elems = unlockedElements(n);
     if (!elems.length) return;
-    const pool = list.filter((s) => s.type !== 'boss');
+    const fodder = { slime: 1, goblin: 1, skeleton: 1, wolf: 1 };
+    const power = { rider: 1, knight: 2, priest: 2, witch: 2, orc: 3, ogre: 3, golem: 4 };
+    const pool = list.filter((s) => s.type !== 'boss' && !fodder[s.type]);
+    if (!pool.length) return;
+    const pick = (arr) => arr.splice(Math.floor(Math.random() * arr.length), 1)[0];
+    const setOne = (s, el) => { s.immunes = [el]; s.immune = el; };
+
     const debut = elems.filter((id) => elementUnlockWave(id) === n);
     for (const el of debut) {
-      const want = Math.max(3, Math.round(list.length * 0.12));
-      const candidates = pool.filter((s) => !s.immune);
-      for (let i = 0; i < want && candidates.length; i++) {
-        const idx = Math.floor(Math.random() * candidates.length);
-        candidates.splice(idx, 1)[0].immune = el;
-      }
+      const cands = pool.filter((s) => !s.immune);
+      const nDebut = Math.min(cands.length, Math.max(2, Math.round(pool.length * 0.08)));
+      for (let i = 0; i < nDebut && cands.length; i++) setOne(pick(cands), el);
     }
-    const frac = clamp(0.08 + (n - 5) * 0.012, 0.08, 0.34);
-    for (const s of pool) {
-      if (s.immune) continue;
-      if (Math.random() < frac) s.immune = choice(elems);
+
+    const frac = clamp(0.10 + (n - 8) * 0.007, 0.10, 0.22);
+    const want = Math.max(1, Math.round(pool.length * frac));
+    const rest = pool.filter((s) => !s.immune);
+    const remain = Math.max(0, want - pool.filter((s) => s.immune).length);
+    for (let i = 0; i < remain && rest.length; i++) setOne(pick(rest), choice(elems));
+
+    if (n < 16) return;
+    const dualCands = pool.filter((s) => s.immunes && s.immunes.length === 1 && (power[s.type] || 0) >= 3);
+    const dualWant = Math.min(dualCands.length, Math.round(dualCands.length * (n >= 22 ? 0.22 : 0.1)));
+    for (let i = 0; i < dualWant && dualCands.length; i++) {
+      const s = pick(dualCands);
+      const second = choice(elems.filter((el) => el !== s.immune));
+      if (!second) continue;
+      s.immunes.push(second);
     }
   }
 
