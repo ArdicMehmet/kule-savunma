@@ -132,15 +132,19 @@ class SoundManager {
         break;
       case 'hero_shot': this.tone({ type: 'triangle', f0: 700 * p, f1: 1100 * p, dur: 0.09, vol: 0.06 * v }); break;
       case 'fire_shot':
-        this.noise({ dur: 0.2, vol: 0.12 * v, type: 'bandpass', f0: 700 * p, f1: 300, Q: 0.8 });
+        this.noise({ dur: 0.32, vol: 0.32 * v, type: 'bandpass', f0: 900 * p, f1: 180, Q: 0.65 });
+        this.tone({ type: 'sawtooth', f0: 210 * p, f1: 55, dur: 0.24, vol: 0.16 * v, q: 700 });
+        this.noise({ dur: 0.18, vol: 0.12 * v, type: 'lowpass', f0: 1600, f1: 400, delay: 0.04 });
         break;
       case 'ice_shot':
-        this.tone({ type: 'sine', f0: 2200 * p, f1: 1300 * p, dur: 0.12, vol: 0.06 * v });
-        this.tone({ type: 'triangle', f0: 3300 * p, dur: 0.05, vol: 0.03 * v, delay: 0.02 });
+        this.tone({ type: 'sine', f0: 2600 * p, f1: 900 * p, dur: 0.18, vol: 0.16 * v });
+        this.tone({ type: 'triangle', f0: 3800 * p, f1: 1600, dur: 0.1, vol: 0.1 * v, delay: 0.02 });
+        this.noise({ dur: 0.16, vol: 0.14 * v, type: 'highpass', f0: 4200, Q: 1.1 });
         break;
       case 'zap':
-        this.noise({ dur: 0.16, vol: 0.12 * v, type: 'highpass', f0: 2500 * p, Q: 0.7 });
-        this.tone({ type: 'sawtooth', f0: 180 * p, f1: 90, dur: 0.12, vol: 0.05 * v, q: 1800 });
+        this.noise({ dur: 0.24, vol: 0.28 * v, type: 'highpass', f0: 3200 * p, Q: 0.55 });
+        this.tone({ type: 'sawtooth', f0: 260 * p, f1: 55, dur: 0.2, vol: 0.16 * v, q: 2200 });
+        this.tone({ type: 'square', f0: 90 * p, f1: 32, dur: 0.14, vol: 0.1 * v });
         break;
       case 'acid_shot':
         this.tone({ type: 'sine', f0: 340 * p, f1: 160, dur: 0.16, vol: 0.12 * v });

@@ -88,10 +88,10 @@ class Enemy {
       radius: bd.radius || base.radius, boss: true, armored: true,
     } : base;
     this.game = game; this.type = typeId; this.T = T; this.path = path; this.wave = wave; this.bossDef = bd || null;
-    this.maxHp = this.hp = T.hp * WAVE_SCALE.hp(wave) * (game.plagueMult || 1);
+    this.maxHp = this.hp = T.hp * WAVE_SCALE.hp(wave) * (game.plagueMult || 1) * (game.eventHpMult || 1);
     this.armor = T.armor + (T.armored ? WAVE_SCALE.armor(wave) : 0);
-    this.speed = T.speed * WAVE_SCALE.speed(wave) * (game.moveMult || 1) * rand(0.94, 1.06);
-    this.gold = Math.max(1, Math.round(T.gold * WAVE_SCALE.gold(wave)));
+    this.speed = T.speed * WAVE_SCALE.speed(wave) * (game.moveMult || 1) * (game.eventSpeedMult || 1) * rand(0.94, 1.06);
+    this.gold = Math.max(1, Math.round(T.gold * WAVE_SCALE.gold(wave) * (game.eventGoldMult || 1)));
     this.radius = T.radius;
     this.isBoss = !!T.boss;
     this.dist = extra.dist != null ? extra.dist : 0; this.lateral = lateral;
@@ -115,6 +115,7 @@ class Enemy {
     this.summons = 0;
     this.castT = T.healer || T.summoner ? rand(0.8, 1.8) : 0;
     this.bossCd = this.isBoss ? 1.1 : 0;
+    this.warpCd = 0;
 
     this.mat = MAT.vc.clone();
     this.mesh = new THREE.Mesh(Models.enemyGeometry(bd && bd.model ? bd.model : typeId), this.mat);
@@ -135,8 +136,16 @@ class Enemy {
     bg.renderOrder = 30; this.hpFg.renderOrder = 31;
     this.hpBar.add(bg, this.hpFg);
     this.hpBar.position.y = T.height + 0.45;
-    this.hpBar.visible = this.isBoss;
+    this.hpBar.visible = this.isBoss || this.immunes.length > 0;
     if (this.isBoss) this.hpBar.scale.setScalar(1.45);
+    this.immunes.forEach((id, i) => {
+      const tw = TOWER_TYPES[id];
+      if (!tw) return;
+      const ic = makeTextSprite(tw.icon, { font: 42, w: 64, h: 64, sx: 0.5, sy: 0.5, color: tw.color });
+      ic.position.set(w / 2 + 0.42 + i * 0.42, 0, 0);
+      ic.renderOrder = 32;
+      this.hpBar.add(ic);
+    });
     this.group.add(this.hpBar);
 
     this.immGlows = [];
@@ -233,6 +242,12 @@ class Enemy {
     if (this.dead || this.blockedBy(src, src && src.isTower ? src.type : null)) return;
     amt = Math.min(amt, 0.85) * (this.isBoss ? 0.6 : 1);
     if (amt >= this.slowAmt || this.slowT <= 0) { this.slowAmt = amt; this.slowT = Math.max(this.slowT, dur); }
+    if (!this.iceCrust) {
+      this.iceCrust = glowSprite(0xbfeeff, this.isBoss ? 3.4 : 1.8, 0.55);
+      this.iceCrust.position.y = this.T.height * 0.45;
+      this.group.add(this.iceCrust);
+    }
+    this.iceCrust.visible = true;
   }
   applyRoot(dur, src) {
     if (this.dead || this.blockedBy(src, src && src.isTower ? src.type : null)) return;
@@ -360,7 +375,7 @@ class Enemy {
     if (this.immFlash > 0) this.immFlash -= dt;
     if (this.rootT > 0) this.rootT -= dt;
     if (this.blockT > 0) this.blockT -= dt;
-    if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slowAmt = 0; }
+    if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) { this.slowAmt = 0; if (this.iceCrust) this.iceCrust.visible = false; } }
     if (this.shredT > 0) { this.shredT -= dt; if (this.shredT <= 0) this.shred = 0; }
     if (this.curseT > 0) this.curseT -= dt;
     if (this.decayT > 0) { this.decayT -= dt; if (this.decayT <= 0) this.decayAmt = 0; }
@@ -387,6 +402,24 @@ class Enemy {
     }
     if (this.castFlash > 0) this.castFlash -= dt;
     if (this.isBoss) this.tickBossAbility(dt);
+
+    if (this.warpCd > 0) this.warpCd -= dt;
+    const holes = this.game.wormholes;
+    if (holes && holes.length && this.warpCd <= 0) {
+      for (const h of holes) {
+        if (h.from !== this.path) continue;
+        if (this.dist < h.fromDist && this.dist + this.speed * dt >= h.fromDist) {
+          this.game.fxA.burst(this.x, this.visHeight * 0.5, this.z, 18, { color: 0xc08cff, speed: 4, life: 0.5, size: 0.28, gravity: 1 });
+          this.path = h.to;
+          this.dist = h.toDist + 0.35;
+          this.warpCd = 1.4;
+          this.updatePosition(0);
+          this.game.fxA.burst(this.x, this.visHeight * 0.5, this.z, 18, { color: 0x7ec8ff, speed: 4, life: 0.5, size: 0.28, gravity: 1 });
+          Sound.play('whoosh', 0.5);
+          break;
+        }
+      }
+    }
 
     const mult = this.rootT > 0 || this.blockT > 0 ? 0 : 1 - this.slowAmt;
     let step = this.speed * mult * dt;
@@ -479,13 +512,17 @@ class Enemy {
       this.fxT = 0.09;
       const h = this.visHeight * 0.6;
       if (this.burnT > 0) {
-        this.game.fxA.emit({ x: this.x + rand(-0.25, 0.25), y: h * rand(0.5, 1.1), z: this.z + rand(-0.25, 0.25), vy: rand(1.2, 2.2), life: rand(0.35, 0.6), size: rand(0.35, 0.55), size2: 0.05, color: choice([0xff6a10, 0xffa030, 0xff3a00]), alpha: 0.9 });
+        for (let i = 0; i < 3; i++) {
+          this.game.fxA.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.3, 1.2), z: this.z + rand(-0.35, 0.35), vy: rand(1.6, 3.2), life: rand(0.4, 0.75), size: rand(0.4, 0.7), size2: 0.05, color: choice([0xff6a10, 0xffa030, 0xff3a00, 0xffee66]), alpha: 0.95 });
+        }
       }
       if (this.poison > 0 && Math.random() < 0.6) {
         this.game.fxA.emit({ x: this.x + rand(-0.3, 0.3), y: h * rand(0.4, 1), z: this.z + rand(-0.3, 0.3), vy: rand(0.5, 1.2), life: 0.6, size: rand(0.18, 0.3), size2: 0.35, color: 0x7dff3a, alpha: 0.7 });
       }
-      if (this.slowAmt > 0 && Math.random() < 0.4) {
-        this.game.fxA.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.3, 1.2), z: this.z + rand(-0.35, 0.35), vy: rand(-0.3, 0.3), life: 0.5, size: rand(0.15, 0.25), size2: 0, color: 0xbff0ff, alpha: 0.9 });
+      if (this.slowAmt > 0) {
+        for (let i = 0; i < 2; i++) {
+          this.game.fxA.emit({ x: this.x + rand(-0.4, 0.4), y: h * rand(0.2, 1.3), z: this.z + rand(-0.4, 0.4), vy: rand(-0.2, 0.6), life: 0.7, size: rand(0.18, 0.32), size2: 0, color: choice([0xbff0ff, 0xffffff, 0x7fd8ff]), alpha: 0.95 });
+        }
       }
       if (this.curseT > 0 && Math.random() < 0.35) {
         this.game.fxA.emit({ x: this.x + rand(-0.3, 0.3), y: h * rand(0.6, 1.4), z: this.z + rand(-0.3, 0.3), vy: rand(0.6, 1.2), life: 0.7, size: rand(0.2, 0.32), size2: 0, color: choice([0xa45cff, 0x7a2ad0, 0xd8b0ff]), alpha: 0.75 });
@@ -498,6 +535,10 @@ class Enemy {
         const hex = TOWER_TYPES[id] ? TOWER_TYPES[id].hex : 0xffffff;
         this.game.fxA.emit({ x: this.x + rand(-0.35, 0.35), y: h * rand(0.2, 1.1), z: this.z + rand(-0.35, 0.35), vy: rand(0.4, 1.1), life: 0.5, size: rand(0.12, 0.2), size2: 0, color: hex, alpha: 0.7 });
       }
+    }
+    if (this.iceCrust && this.iceCrust.visible) {
+      this.iceCrust.material.opacity = 0.45 + 0.2 * Math.sin(time * 7);
+      this.iceCrust.scale.setScalar((this.isBoss ? 3.4 : 1.8) * (1 + 0.08 * Math.sin(time * 5)));
     }
   }
 

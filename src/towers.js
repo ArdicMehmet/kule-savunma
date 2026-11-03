@@ -162,7 +162,8 @@ class Tower {
           kind: 'fire', x: mx, y: my, z: mz, target: t, speed: 18,
           onHit: (x, y, z, e) => {
             if (e) { this.basicHit(e, this.damage); e.applyBurn(this.damage * 0.4 * this.burnMult, 3, this); }
-            g.fxA.burst(x, y, z, 7, { color: 0xff8a30, speed: 2.5, life: 0.35, size: 0.35, gravity: 2 });
+            g.fxA.burst(x, y, z, 16, { color: 0xff8a30, speed: 4.2, life: 0.5, size: 0.48, gravity: 1.2 });
+            g.fxA.burst(x, y, z, 6, { color: 0xffee66, speed: 2.4, life: 0.35, size: 0.28, gravity: -1 });
           },
         }));
         Sound.play('fire_shot');
@@ -172,7 +173,8 @@ class Tower {
           kind: 'ice', x: mx, y: my, z: mz, target: t, speed: 22,
           onHit: (x, y, z, e) => {
             if (e) { this.basicHit(e, this.damage); e.applySlow(0.3 + this.slowBonus, 1.6, this); }
-            g.fxA.burst(x, y, z, 7, { color: 0xbff0ff, speed: 2.5, life: 0.35, size: 0.25, gravity: 3 });
+            g.fxA.burst(x, y, z, 16, { color: 0xbff0ff, speed: 3.6, life: 0.5, size: 0.38, gravity: 2 });
+            g.fxA.burst(x, y, z, 6, { color: 0xffffff, speed: 1.8, life: 0.4, size: 0.22, gravity: 0.5 });
           },
         }));
         Sound.play('ice_shot');
@@ -182,14 +184,15 @@ class Tower {
           kind: 'death', x: mx, y: my, z: mz, target: t, speed: 17,
           onHit: (x, y, z, e) => {
             if (e) { e.applyCurse(this, 6); this.basicHit(e, this.damage); }
-            g.fxA.burst(x, y, z, 8, { color: choice(DEATH_COLORS), speed: 2.2, life: 0.4, size: 0.32, gravity: -1 });
+            g.fxA.burst(x, y, z, 14, { color: choice(DEATH_COLORS), speed: 3.2, life: 0.5, size: 0.42, gravity: -1.5 });
           },
         }));
-        Sound.play('curse', 0.6);
+        Sound.play('curse', 0.85);
         break;
       case 'storm':
         this.chainLightning(t);
         Sound.play('zap');
+        Sound.play('thunder', 0.28);
         break;
       case 'acid': {
         const pr = t.predict(0.6, {});
@@ -230,7 +233,7 @@ class Tower {
       const y = e.T.height * 0.6;
       pts.push(new THREE.Vector3(e.x, y, e.z));
       this.basicHit(e, this.damage * Math.max(0.4, 1 - 0.12 * i));
-      sparkBurst(g, e.x, y, e.z, 5);
+      sparkBurst(g, e.x, y, e.z, 14);
     });
     g.addFx(new LightningFx(g, pts, 0xb48cff, 0.07, 0.18, 0.35));
   }

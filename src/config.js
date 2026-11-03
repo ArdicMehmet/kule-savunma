@@ -4,7 +4,7 @@ const DEBUG = /[?&]debug/.test(location.search);
 
 const CFG = {
   bounds: { minX: -46, maxX: 46, minZ: -46, maxZ: 33 },
-  castle: { x: 0, z: 23, radius: 4.6, maxHp: 30 },
+  castle: { x: 0, z: 23, radius: 4.6, maxHp: 36 },
   roadHalfWidth: 1.7,
 
   hero: {
@@ -13,20 +13,20 @@ const CFG = {
     dmg: 9, rate: 1.4, range: 8.5, projSpeed: 22,
   },
 
-  startGold: DEBUG ? 20000 : 300,
+  startGold: DEBUG ? 20000 : 420,
   foundationRadius: 1.25,
-  foundationCost: (n) => 50 + n * 25,
-  towerChoiceCost: 100,
-  upgradeCost: (level) => Math.round(60 * Math.pow(1.24, level - 1) / 5) * 5,
-  rerollCost: (n) => 20 + n * 15,
+  foundationCost: (n) => 40 + n * 32,
+  towerChoiceCost: 80,
+  upgradeCost: (level) => Math.round(55 * Math.pow(1.30, level - 1) / 5) * 5,
+  rerollCost: () => 0,
   sellRatio: 0.6,
 
   rarity: {
-    temel: { name: 'Temel', color: '#aeb8c2', weight: 58 },
-    orta:  { name: 'Orta',  color: '#4da3ff', weight: 30 },
-    nadir: { name: 'Nadir', color: '#ffb52e', weight: 12 },
+    temel: { name: 'Temel', color: '#aeb8c2', weight: 80 },
+    orta:  { name: 'Orta',  color: '#4da3ff', weight: 17 },
+    nadir: { name: 'Nadir', color: '#ffb52e', weight: 3 },
   },
-  luckShift: { temel: -6, orta: 2, nadir: 4 },
+  luckShift: { temel: -2.0, orta: 1.4, nadir: 0.5 },
   abilityMaxLevel: 10,
 
   firstBreak: 30,
@@ -47,9 +47,13 @@ const PATH_DEFS = [
 
 // Dalga güçlenme eğrileri
 const WAVE_SCALE = {
-  hp: (n) => (1 + 0.12 * (n - 1)) * Math.pow(1.06, n - 1),
-  armor: (n) => Math.floor(1.2 * (n - 1)),
-  speed: (n) => 1 + Math.min(0.25, 0.008 * (n - 1)),
-  gold: (n) => 1 + 0.06 * (n - 1),
-  budget: (n) => 6 + n * 4.5 + n * n * 0.12,
+  hp: (n) => {
+    const early = 0.68 * Math.pow(1.055, n - 1);
+    const late = n <= 12 ? 1 : Math.pow(1.115, n - 12);
+    return early * late;
+  },
+  armor: (n) => Math.floor((n < 12 ? 0.7 : 1.55) * Math.max(0, n - 1)),
+  speed: (n) => 1 + Math.min(0.4, 0.005 * (n - 1) + 0.014 * Math.max(0, n - 14)),
+  gold: (n) => Math.max(0.62, 1.02 - 0.014 * (n - 1)),
+  budget: (n) => 4.2 + n * 2.9 + Math.pow(Math.max(0, n - 6), 1.7) * 0.28,
 };

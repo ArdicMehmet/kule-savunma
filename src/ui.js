@@ -8,10 +8,10 @@ class UI {
     this.game = game;
     const $ = (id) => document.getElementById(id);
     this.el = {};
-    ['hud', 'gold-val', 'castle-bar', 'castle-val', 'wave-val', 'wave-status', 'btn-call', 'btn-shop', 'btn-speed', 'btn-sound', 'btn-pause',
+    ['hud', 'gold-val', 'castle-bar', 'castle-val', 'wave-val', 'wave-status', 'event-chip', 'btn-call', 'btn-shop', 'btn-speed', 'btn-sound', 'btn-pause',
       'btn-snow', 'relic-bar', 'debug-bar', 'btn-debug-relic',
       'prompt', 'tower-panel', 'shop-panel', 'shop-items', 'shop-close', 'minimap', 'banner', 'banner-title', 'banner-sub', 'floaters',
-      'wave-preview', 'wave-preview-head', 'wave-preview-list',
+      'wave-preview', 'wave-preview-head', 'wave-preview-event', 'wave-preview-list',
       'toast', 'vignette', 'card-modal', 'card-title', 'card-sub', 'cards', 'btn-reroll', 'reroll-cost', 'start-screen', 'btn-start',
       'best-record', 'pause-screen', 'btn-resume', 'opt-music', 'opt-sfx', 'btn-restart', 'gameover-screen', 'go-stats', 'btn-again',
     ].forEach((id) => { this.el[id.replace(/-([a-z])/g, (m, c) => c.toUpperCase())] = $(id); });
@@ -70,6 +70,17 @@ class UI {
   showWavePreview(n, summary) {
     const e = this.el;
     e.wavePreviewHead.textContent = `Dalga ${n} — gelenler`;
+    const ev = summary.event;
+    if (e.wavePreviewEvent) {
+      if (ev) {
+        e.wavePreviewEvent.classList.remove('hidden');
+        e.wavePreviewEvent.style.borderColor = ev.color;
+        e.wavePreviewEvent.innerHTML = `<span class="wp-ev-ico">${ev.icon}</span><div><b style="color:${ev.color}">${ev.name}</b><div class="wp-ev-desc">${ev.desc}</div></div>`;
+      } else {
+        e.wavePreviewEvent.classList.add('hidden');
+        e.wavePreviewEvent.innerHTML = '';
+      }
+    }
     e.wavePreviewList.innerHTML = summary.units.map((u) => {
       const ims = u.immunes.map((im) =>
         `<span class="wp-imm${im.isNew ? ' new' : ''}" style="--imm:${im.color}">${im.icon}${im.isNew ? ' NEW' : ''}</span>`
@@ -172,14 +183,29 @@ class UI {
     e.castleBar.style.width = (100 * Math.max(0, g.castleHp) / max) + '%';
     e.castleVal.textContent = `${Math.ceil(Math.max(0, g.castleHp))}/${max}`;
     e.waveVal.textContent = `Dalga ${W.wave}`;
+    const nextEv = W.next && W.next.event;
+    const liveEv = g.activeEvent;
+    if (e.eventChip) {
+      const show = W.state === 'break' ? nextEv : liveEv;
+      e.eventChip.classList.toggle('hidden', !show);
+      if (show) {
+        e.eventChip.textContent = `${show.icon} ${show.name}`;
+        e.eventChip.style.borderColor = show.color;
+        e.eventChip.style.color = show.color;
+      }
+    }
     if (W.state === 'break') {
-      e.waveStatus.textContent = `Sonraki dalga: ${Math.ceil(W.timer)} sn`;
+      e.waveStatus.textContent = nextEv
+        ? `${Math.ceil(W.timer)} sn · ${nextEv.icon} ${nextEv.name}`
+        : `Sonraki: ${Math.ceil(W.timer)} sn`;
       e.btnCall.classList.remove('disabled');
-      e.btnCall.innerHTML = `⚔️ Dalgayı Çağır <span style="color:#ffd451">+${Math.ceil(W.timer) * CFG.earlyCallGoldPerSec}💰</span> <kbd>Space</kbd>`;
+      e.btnCall.innerHTML = `⚔️ Çağır <span class="call-gold">+${Math.ceil(W.timer) * CFG.earlyCallGoldPerSec}💰</span> <kbd>Space</kbd>`;
     } else {
-      e.waveStatus.textContent = `Kalan düşman: ${W.remaining}`;
+      e.waveStatus.textContent = liveEv
+        ? `${liveEv.icon} ${W.remaining} düşman`
+        : `${W.remaining} düşman`;
       e.btnCall.classList.add('disabled');
-      e.btnCall.innerHTML = '⚔️ Dalga sürüyor…';
+      e.btnCall.innerHTML = '⚔️ Sürüyor';
     }
     e.btnSpeed.innerHTML = `⏩ ${g.speed}x <kbd>F</kbd>`;
     e.btnSound.innerHTML = `${Sound.muted ? '🔇' : '🔊'} <kbd>M</kbd>`;
@@ -311,9 +337,10 @@ class UI {
   updateRerollButton() {
     const s = this.cardState;
     if (!s || !s.reroll) return;
-    const c = s.reroll.cost();
-    this.el.rerollCost.textContent = `(${c} 💰)`;
-    this.el.btnReroll.disabled = this.game.gold < c;
+    const used = this.game.rerollCount >= 1;
+    this.el.rerollCost.textContent = used ? '' : '(1 hak)';
+    this.el.btnReroll.disabled = used;
+    this.el.btnReroll.classList.toggle('hidden', used);
   }
   renderCards(cards) {
     const box = this.el.cards;
@@ -436,6 +463,12 @@ class UI {
     for (const p of game.world.portals) {
       g.fillStyle = p.active ? '#b070ff' : '#4a3a5a';
       g.beginPath(); g.arc(this.mx(p.x), this.my(p.z), 5, 0, Math.PI * 2); g.fill();
+    }
+    for (const w of game.world.wormholeFx) {
+      g.fillStyle = '#c08cff';
+      g.beginPath(); g.arc(this.mx(w.x), this.my(w.z), 6, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#fff'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(this.mx(w.x), this.my(w.z), 6, 0, Math.PI * 2); g.stroke();
     }
     for (const t of game.towers) {
       g.fillStyle = t.type ? TOWER_TYPES[t.type].color : '#9aa4ae';

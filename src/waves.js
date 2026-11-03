@@ -23,6 +23,8 @@ class WaveManager {
     this.seenTypes = new Set();
     this.seenImm = new Set();
     this.next = null;
+    this.lastEventWave = 0;
+    this.lastImmByType = {};
   }
 
   update(dt) {
@@ -49,7 +51,10 @@ class WaveManager {
     const n = this.wave + 1;
     const queue = this.generate(n);
     const summary = this.summarize(queue, n);
-    this.next = { wave: n, queue, summary };
+    const event = pickWaveEvent(n, this.lastEventWave);
+    if (event) this.lastEventWave = n;
+    summary.event = event;
+    this.next = { wave: n, queue, summary, event };
     this.game.ui.showWavePreview(n, summary);
   }
 
@@ -79,16 +84,18 @@ class WaveManager {
     });
     const boss = isBossWave(n);
     const def = boss ? bossDefForWave(n) : null;
+    const ev = planned.event;
     let sub = this.hint(n, planned.summary);
     if (def) {
       const imm = def.immune && TOWER_TYPES[def.immune];
       sub = `${def.icon} ${def.name}` + (imm ? ` · ${imm.icon} ${elementLabel(def.immune)} bağışık` : '');
     }
-    this.game.ui.banner(`DALGA ${n}`, sub, boss ? '#ff6b5b' : '#ffffff');
+    if (ev) this.game.ui.banner(`DALGA ${n} · ${ev.icon} ${ev.name}`, ev.desc, ev.color);
+    else this.game.ui.banner(`DALGA ${n}`, sub, boss ? '#ff6b5b' : '#ffffff');
     this.game.ui.hideWavePreview(2400);
     Sound.play(boss ? 'boss_horn' : 'wave_start');
     Sound.setIntensity(boss ? 2 : 1);
-    this.game.onWaveStart(n);
+    this.game.onWaveStart(n, planned.event);
   }
 
   callEarly() {
@@ -100,7 +107,7 @@ class WaveManager {
 
   waveCleared() {
     const n = this.wave;
-    const bonus = 25 + 8 * n;
+    const bonus = 16 + 4 * n;
     this.state = 'break';
     this.timer = CFG.breakTime;
     this.game.addGold(bonus);
@@ -174,6 +181,11 @@ class WaveManager {
     const pool = list.filter((s) => s.type !== 'boss' && !fodder[s.type]);
     if (!pool.length) return;
     const pick = (arr) => arr.splice(Math.floor(Math.random() * arr.length), 1)[0];
+    const pickElem = (type) => {
+      const avoid = this.lastImmByType[type];
+      const fresh = elems.filter((el) => el !== avoid);
+      return choice(fresh.length ? fresh : elems);
+    };
     const setOne = (s, el) => { s.immunes = [el]; s.immune = el; };
 
     const debut = elems.filter((id) => elementUnlockWave(id) === n);
@@ -187,7 +199,13 @@ class WaveManager {
     const want = Math.max(1, Math.round(pool.length * frac));
     const rest = pool.filter((s) => !s.immune);
     const remain = Math.max(0, want - pool.filter((s) => s.immune).length);
-    for (let i = 0; i < remain && rest.length; i++) setOne(pick(rest), choice(elems));
+    for (let i = 0; i < remain && rest.length; i++) {
+      const s = pick(rest);
+      setOne(s, pickElem(s.type));
+    }
+    for (const s of pool) {
+      if (s.immune) this.lastImmByType[s.type] = s.immunes[s.immunes.length - 1];
+    }
 
     if (n < 16) return;
     const dualCands = pool.filter((s) => s.immunes && s.immunes.length === 1 && (power[s.type] || 0) >= 3);
@@ -238,16 +256,17 @@ class WaveManager {
         list.push({ t: t + i * 0.35, type: u.id, path: choice(paths), lateral: rand(-1.1, 1.1) });
       }
     }
+    this.assignImmunities(list, n);
     if (isBossWave(n)) {
       const def = bossDefForWave(n);
       const escort = n >= 16 ? 'orc' : n >= 6 ? 'knight' : 'goblin';
       const path = choice(paths);
-      t += 2;
-      list.push({ t, type: 'boss', path, lateral: 0, immune: def.immune || undefined, boss: def });
-      const esc = 4 + Math.floor(n / 5);
-      for (let k = 0; k < esc; k++) list.push({ t: t + 0.6 + k * 0.35, type: escort, path, lateral: rand(-1.1, 1.1) });
+      const lastT = list.length ? Math.max.apply(null, list.map((s) => s.t)) : t;
+      const bt = lastT + 3.8;
+      list.push({ t: bt, type: 'boss', path, lateral: 0, immune: def.immune || undefined, boss: def });
+      const esc = 3 + Math.floor(n / 8);
+      for (let k = 0; k < esc; k++) list.push({ t: bt + 1.1 + k * 0.4, type: escort, path, lateral: rand(-1.1, 1.1) });
     }
-    this.assignImmunities(list, n);
     list.sort((a, b) => a.t - b.t);
     return list;
   }

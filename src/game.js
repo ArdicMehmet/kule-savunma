@@ -57,6 +57,8 @@ class Game {
     this.rebornReady = false; this.rebornUsed = false;
     this.plagueStacks = 0; this.plagueMult = 1; this.weaponWaves = 0;
     this.snowCd = 0; this.king = null; this.relicPending = 0; this.snowSrc = null;
+    this.eventHpMult = 1; this.eventSpeedMult = 1; this.eventGoldMult = 1; this.abilityCdMult = 1;
+    this.activeEvent = null; this.wormholes = [];
     wrapAbilityDurations();
     this.enemies = []; this.towers = []; this.projectiles = []; this.effects = []; this.seeds = [];
     this.grid = new SpatialGrid(4); this._q = [];
@@ -106,7 +108,8 @@ class Game {
     const s = new THREE.Scene();
     s.background = new THREE.Color(0xa8d8f0);
     s.fog = new THREE.Fog(0xa8d8f0, 70, 150);
-    s.add(new THREE.HemisphereLight(0xd4ecff, 0x5a6b3a, 1.15));
+    this.hemi = new THREE.HemisphereLight(0xd4ecff, 0x5a6b3a, 1.15);
+    s.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff0d0, 2.6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -210,7 +213,9 @@ class Game {
     if (bonus > 0) { this.addGold(bonus); this.ui.toast(`⚔️ Dalga erken çağrıldı: +${bonus} 💰`); }
   }
 
-  onWaveStart(n) {
+  onWaveStart(n, ev) {
+    applyWaveEvent(this, ev || null);
+    if (ev) Sound.play('unlock');
     if (this.relics.plague) {
       this.plagueStacks++;
       this.plagueMult = Math.max(0.4, Math.pow(0.9, this.plagueStacks));
@@ -224,6 +229,7 @@ class Game {
   }
 
   onWaveCleared(n) {
+    clearWaveEvent(this);
     if (this.king) this.king.onWaveCleared();
     for (const t of this.towers) if (t.waveFrozen || t.frozenT > 0) t.unfreeze();
     const tips = {
@@ -235,7 +241,18 @@ class Game {
   }
 
   syncHeroDmg() {
-    this.hero.dmgMult = (1 + 0.35 * this.heroLevel) * (1 + 0.1 * this.weaponWaves);
+    this.hero.dmgMult = (1 + 0.22 * this.heroLevel) * (1 + 0.1 * this.weaponWaves);
+  }
+
+  oneReroll(draw) {
+    return {
+      cost: () => 0,
+      fn: () => {
+        if (this.rerollCount >= 1) return null;
+        this.rerollCount++;
+        return draw();
+      },
+    };
   }
 
   tryReborn() {
@@ -272,10 +289,12 @@ class Game {
 
   openRelicChoice(cards) {
     this.state = 'cards';
+    this.rerollCount = 0;
     this.ui.openCards({
       title: '✨ Relic Seçimi',
-      sub: 'Boss düştü! Üç relicten birini seç.',
+      sub: 'Boss düştü! Üç relicten birini seç. Bir kez ücretsiz yenileyebilirsin.',
       cards,
+      reroll: this.oneReroll(() => drawRelics(this, 3)),
       onPick: (c) => { this.state = 'playing'; applyRelic(this, c.id); this.flushRelics(); },
     });
   }
@@ -344,6 +363,18 @@ class Game {
           this.waves.next = null;
           this.waves.prepareNext();
           this.waves.timer = 0.15;
+        }
+        break;
+      case 'KeyV':
+        if (DEBUG && this.waves.next) {
+          const ids = Object.keys(WAVE_EVENTS);
+          const cur = this.waves.next.event;
+          const ev = WAVE_EVENTS[ids[cur ? (ids.indexOf(cur.id) + 1) % ids.length : 0]];
+          this.waves.next.event = ev;
+          this.waves.next.summary.event = ev;
+          this.waves.lastEventWave = this.waves.next.wave;
+          this.ui.showWavePreview(this.waves.next.wave, this.waves.next.summary);
+          this.ui.toast(`DEBUG event: ${ev.icon} ${ev.name}`);
         }
         break;
     }
@@ -609,7 +640,7 @@ class Game {
   openTowerChoice(t) {
     this.openCardModal({
       title: '🎲 Kule Seçimi',
-      sub: 'Temelin üzerine kurulacak kuleyi seç',
+      sub: 'Temelin üzerine kurulacak kuleyi seç. Bir kez ücretsiz yenileyebilirsin.',
       draw: () => this.towerChoiceCards(),
       onPick: (c) => this.buildTower(t, c.id),
     });
@@ -618,7 +649,7 @@ class Game {
   openUpgrade(t) {
     this.openCardModal({
       title: `${t.icon} ${t.name} — Yükseltme`,
-      sub: `Seviye ${t.level} → ${t.level + 1} · Şansına ne çıkarsa! Bir kart seç.`,
+      sub: `Seviye ${t.level} → ${t.level + 1}. Bir kart seç — bir kez ücretsiz yenileyebilirsin.`,
       draw: () => t.drawCards(3),
       onPick: (c) => this.applyUpgrade(t, c),
     });
@@ -629,14 +660,7 @@ class Game {
     this.rerollCount = 0;
     this.ui.openCards({
       title: o.title, sub: o.sub, cards: o.draw(),
-      reroll: {
-        cost: () => CFG.rerollCost(this.rerollCount),
-        fn: () => {
-          if (!this.spend(CFG.rerollCost(this.rerollCount))) return null;
-          this.rerollCount++;
-          return o.draw();
-        },
-      },
+      reroll: this.oneReroll(o.draw),
       onPick: (c) => { this.state = 'playing'; Sound.play('card_pick'); o.onPick(c); this.flushRelics(); },
     });
   }
@@ -717,12 +741,16 @@ class Game {
   }
 
   // ---------------- Mağaza ----------------
-  luckCost() { return Math.round(150 * Math.pow(1.7, this.luck) / 5) * 5; }
-  heroCost() { return Math.round(120 * Math.pow(1.6, this.heroLevel) / 5) * 5; }
+  luckCost() { return Math.round(180 * Math.pow(1.85, this.luck) / 5) * 5; }
+  heroCost() { return Math.round(140 * Math.pow(1.75, this.heroLevel) / 5) * 5; }
   repairCost() { return 60 + 20 * this.repairs; }
 
   shopItems() {
-    const nadir = (l) => Math.round(CFG.rarity.nadir.weight + CFG.luckShift.nadir * l);
+    const nadirPct = (l) => {
+      const w = (r) => Math.max(1, CFG.rarity[r].weight + CFG.luckShift[r] * l);
+      const tot = w('temel') + w('orta') + w('nadir');
+      return Math.round(100 * w('nadir') / tot);
+    };
     const max = this.castleMax;
     return [
       { id: 'foundation', icon: '🧱', name: 'Kule Temeli',
@@ -731,10 +759,10 @@ class Game {
       { id: 'repair', icon: '🛠️', name: 'Kale Onarımı', desc: `Kaleye +5 can verir. (${Math.ceil(this.castleHp)}/${max})`,
         cost: this.repairCost(), disabled: this.castleHp >= max },
       { id: 'luck', icon: '🍀', name: 'Şans Tılsımı',
-        desc: `Yükseltmelerde Orta/Nadir kart şansını artırır. Nadir şansı: %${nadir(this.luck)}${this.luck < 5 ? ' → %' + nadir(this.luck + 1) : ''} (Sv. ${this.luck}/5)`,
-        cost: this.luckCost(), maxed: this.luck >= 5 },
-      { id: 'hero', icon: '🗡️', name: 'Kahraman Gücü', desc: `Kahramanın hasarı +%35, saldırı hızı +%10. (Sv. ${this.heroLevel}/8)`,
-        cost: this.heroCost(), maxed: this.heroLevel >= 8 },
+        desc: `Nadir kart şansı: %${nadirPct(this.luck)}${this.luck < 4 ? ' → %' + nadirPct(this.luck + 1) : ''} (Sv. ${this.luck}/4)`,
+        cost: this.luckCost(), maxed: this.luck >= 4 },
+      { id: 'hero', icon: '🗡️', name: 'Kahraman Gücü', desc: `Hasar +%22, saldırı hızı +%7. (Sv. ${this.heroLevel}/6)`,
+        cost: this.heroCost(), maxed: this.heroLevel >= 6 },
     ];
   }
 
@@ -763,17 +791,17 @@ class Game {
         break;
       }
       case 'luck': {
-        if (this.luck >= 5 || !this.spend(this.luckCost())) return;
+        if (this.luck >= 4 || !this.spend(this.luckCost())) return;
         this.luck++;
         Sound.play('upgrade');
-        this.ui.toast(`🍀 Şans seviyesi ${this.luck}! Orta ve Nadir kartlar daha sık gelecek.`);
+        this.ui.toast(`🍀 Şans seviyesi ${this.luck}. Nadir kartlar hâlâ seyrek gelir.`);
         break;
       }
       case 'hero': {
-        if (this.heroLevel >= 8 || !this.spend(this.heroCost())) return;
+        if (this.heroLevel >= 6 || !this.spend(this.heroCost())) return;
         this.heroLevel++;
         this.syncHeroDmg();
-        this.hero.rateMult = 1 + 0.1 * this.heroLevel;
+        this.hero.rateMult = 1 + 0.07 * this.heroLevel;
         Sound.play('upgrade');
         this.addFx(new RingPulseFx(this, this.hero.x, this.hero.z, 3, 0x9ff4ff, 0.5));
         this.ui.toast(`🗡️ Kahraman güçlendi! (Sv. ${this.heroLevel})`);

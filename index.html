@@ -12,8 +12,9 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div class="hud-box gold"><span class="ico">💰</span><span id="gold-val">0</span></div>
-    <div class="hud-box castle"><span class="ico">🏰</span><div class="bar"><div id="castle-bar"></div></div><span id="castle-val">30</span></div>
+    <div class="hud-box castle"><span class="ico">🏰</span><div class="bar"><div id="castle-bar"></div></div><span id="castle-val">36</span></div>
     <div class="hud-box wave"><div id="wave-val">Dalga 0</div><div id="wave-status">Hazırlık</div></div>
+    <div id="event-chip" class="hud-box event hidden"></div>
     <button id="btn-call" class="hud-btn call">⚔️ Dalgayı Çağır <kbd>Space</kbd></button>
     <div class="spacer"></div>
     <button id="btn-shop" class="hud-btn">🛒 Mağaza <kbd>B</kbd></button>
@@ -39,10 +40,11 @@
 
   <div id="minimap-wrap"><canvas id="minimap" width="220" height="184"></canvas></div>
   <div id="help-line">
-    <kbd>WASD</kbd> Hareket · <kbd>Shift</kbd> Koş · <kbd>E</kbd> Etkileşim · <kbd>B</kbd> Mağaza · <kbd>C</kbd> Çığ · <kbd>Tekerlek</kbd> Yakınlaştır · <kbd>Tık</kbd> Kule bilgisi
+    <kbd>WASD</kbd> hareket · <kbd>E</kbd> etkileşim · <kbd>B</kbd> mağaza · <kbd>Space</kbd> dalga
   </div>
   <div id="wave-preview" class="hidden">
     <div class="wp-head" id="wave-preview-head">Gelecek dalga</div>
+    <div id="wave-preview-event" class="wp-event hidden"></div>
     <div id="wave-preview-list"></div>
   </div>
   <div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
@@ -57,7 +59,7 @@
     <div id="card-sub"></div>
     <div id="cards"></div>
     <div id="card-actions">
-      <button id="btn-reroll" class="btn">🎲 Yeniden Çek <span id="reroll-cost"></span> <kbd>R</kbd></button>
+      <button id="btn-reroll" class="btn">🎲 Yenile <span id="reroll-cost">(1 hak)</span> <kbd>R</kbd></button>
     </div>
   </div>
 </div>
@@ -115,6 +117,7 @@
 <script src="src/towers.js"></script>
 <script src="src/hero.js"></script>
 <script src="src/waves.js"></script>
+<script src="src/events.js"></script>
 <script src="src/relics.js"></script>
 <script src="src/ui.js"></script>
 <script src="src/game.js"></script>

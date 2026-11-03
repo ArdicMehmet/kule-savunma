@@ -166,7 +166,8 @@ const ABILITY_IMPL = {};
 // Yetenek bekleme süresi yardımcısı: hazır olunca fire() çağrılır; hedef bulunamazsa kısa süre sonra tekrar dener.
 function abilityTick(ab, dt, cd, fire) {
   ab.timer -= dt;
-  if (ab.timer <= 0) ab.timer = fire() ? cd : 0.3;
+  const m = (window.game && window.game.abilityCdMult) || 1;
+  if (ab.timer <= 0) ab.timer = fire() ? cd * m : 0.3;
 }
 
 const sec = (v) => v.toFixed(1) + ' sn';

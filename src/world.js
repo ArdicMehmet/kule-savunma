@@ -54,7 +54,9 @@ class World {
     this.paths = PATH_DEFS.map((d, i) => new GamePath(d, i));
     this.decor = [];
     this.portals = [];
+    this.wormholeFx = [];
     this.time = 0;
+    this.mood = null;
     this.buildGround();
     this.paths.forEach((p, i) => this.buildRoad(p, i));
     this.buildCastle();
@@ -340,5 +342,85 @@ class World {
       flags[i].rotation.y = Math.sin(t * 2.2 + i) * 0.35 + 0.4;
       flags[i].scale.x = 1 + Math.sin(t * 4 + i * 2) * 0.06;
     }
+    for (const w of this.wormholeFx) {
+      w.ring.rotation.z += dt * 2.4;
+      w.glow.material.opacity = 0.5 + 0.25 * Math.sin(t * 4 + w.phase);
+      if (Math.random() < dt * 10) {
+        this.game.fxA.emit({
+          x: w.x + rand(-0.6, 0.6), y: rand(0.4, 2.4), z: w.z + rand(-0.6, 0.6),
+          vy: rand(0.4, 1.4), life: 0.7, size: 0.28, size2: 0, color: choice([0xc08cff, 0x7ec8ff, 0xffffff]), alpha: 0.9,
+        });
+      }
+    }
+  }
+
+  setMood(id) {
+    const g = this.game, s = g.scene;
+    this.mood = id;
+    const moods = {
+      blood_moon: { sky: 0x4a1420, fog: 0x3a1018, hemi: 0xff6a6a, ground: 0x3a1a18, sun: 0xff7040, sunI: 1.4, exp: 0.85 },
+      gold_rush: { sky: 0xc8b060, fog: 0xb8a050, hemi: 0xffe9a0, ground: 0x6a5a28, sun: 0xffe080, sunI: 2.8, exp: 1.15 },
+      emp: { sky: 0x6a88aa, fog: 0x5a78a0, hemi: 0xa8d8ff, ground: 0x3a4a58, sun: 0xc0e8ff, sunI: 2.1, exp: 1.0 },
+      wormhole: { sky: 0x3a2858, fog: 0x2a1848, hemi: 0xc08cff, ground: 0x2a1a40, sun: 0xb080ff, sunI: 1.7, exp: 0.9 },
+    };
+    const m = moods[id] || { sky: 0xa8d8f0, fog: 0xa8d8f0, hemi: 0xd4ecff, ground: 0x5a6b3a, sun: 0xfff0d0, sunI: 2.6, exp: 1.05 };
+    s.background.setHex(m.sky);
+    s.fog.color.setHex(m.fog);
+    g.hemi.color.setHex(m.hemi);
+    g.hemi.groundColor.setHex(m.ground);
+    g.sun.color.setHex(m.sun);
+    g.sun.intensity = m.sunI;
+    g.renderer.toneMappingExposure = m.exp;
+  }
+
+  spawnWormholes() {
+    this.clearWormholes();
+    const g = this.game, n = g.waves.wave;
+    const paths = this.paths.filter((p) => p.def.unlock <= n);
+    if (paths.length < 2) return;
+    const counts = new Map();
+    for (const p of paths) counts.set(p, 0);
+    for (const s of g.waves.queue) if (counts.has(s.path)) counts.set(s.path, counts.get(s.path) + 1);
+    let busy = paths[0], sparse = paths[0], bc = -1, sc = Infinity;
+    for (const p of paths) {
+      const c = counts.get(p) || 0;
+      if (c > bc) { bc = c; busy = p; }
+      if (c < sc) { sc = c; sparse = p; }
+    }
+    if (busy === sparse) sparse = paths.find((p) => p !== busy) || busy;
+    const fromDist = busy.length * 0.48;
+    const toDist = sparse.length * 0.48;
+    const mk = (path, dist, color) => {
+      const s = { x: 0, z: 0, tx: 0, tz: 1 };
+      path.sample(dist, s);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.14, 8, 24), new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false,
+      }));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(s.x, 1.15, s.z);
+      const glow = glowSprite(color, 3.2, 0.6);
+      glow.position.set(s.x, 1.15, s.z);
+      this.scene.add(ring, glow);
+      const light = new THREE.PointLight(color, 18, 10, 2);
+      light.position.set(s.x, 1.6, s.z);
+      this.scene.add(light);
+      this.wormholeFx.push({ ring, glow, light, x: s.x, z: s.z, phase: rand(0, 6) });
+      return { x: s.x, z: s.z };
+    };
+    mk(busy, fromDist, 0xc08cff);
+    mk(sparse, toDist, 0x7ec8ff);
+    g.wormholes = [{ from: busy, fromDist, to: sparse, toDist }];
+    g.ui.toast('🌀 Solucan delikleri yolların ortasında açıldı!');
+  }
+
+  clearWormholes() {
+    for (const w of this.wormholeFx) {
+      this.scene.remove(w.ring, w.glow, w.light);
+      if (w.ring.geometry) w.ring.geometry.dispose();
+      if (w.ring.material) w.ring.material.dispose();
+      if (w.glow.material) w.glow.material.dispose();
+    }
+    this.wormholeFx.length = 0;
+    this.game.wormholes = [];
   }
 }
