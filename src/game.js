@@ -253,10 +253,19 @@ class Game {
     return true;
   }
 
+  debugGiveRelic() {
+    if (!DEBUG || this.state === 'cards' || this.state === 'gameover' || this.state === 'menu') return;
+    const left = Object.values(RELIC_DEFS).filter((d) => !this.ownedRelics.has(d.id));
+    if (!left.length) { this.ui.toast('Tüm relicler alındı.'); return; }
+    if (this.state === 'paused') this.togglePause();
+    this.relicPending++;
+    this.flushRelics();
+  }
+
   flushRelics() {
     if (this.state === 'cards' || this.state === 'gameover' || this.relicPending <= 0) return;
     const cards = drawRelics(this, 3);
-    if (!cards.length) { this.relicPending = 0; return; }
+    if (!cards.length) { this.relicPending = 0; this.ui.toast('Seçilecek relic kalmadı.'); return; }
     this.relicPending--;
     this.openRelicChoice(cards);
   }
@@ -328,7 +337,7 @@ class Game {
       case 'KeyC': fireSnowShower(this); break;
       case 'KeyG': if (DEBUG) this.addGold(1000); break;
       case 'KeyK': if (DEBUG) for (const e of this.enemies) e.takeDamage(1e9, {}); break;
-      case 'KeyL': if (DEBUG) { this.relicPending++; this.flushRelics(); } break;
+      case 'KeyL': if (DEBUG) this.debugGiveRelic(); break;
       case 'KeyN':
         if (DEBUG && this.waves.state === 'break') {
           this.waves.wave = Math.max(this.waves.wave, 9);

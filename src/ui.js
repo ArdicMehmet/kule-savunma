@@ -9,7 +9,7 @@ class UI {
     const $ = (id) => document.getElementById(id);
     this.el = {};
     ['hud', 'gold-val', 'castle-bar', 'castle-val', 'wave-val', 'wave-status', 'btn-call', 'btn-shop', 'btn-speed', 'btn-sound', 'btn-pause',
-      'btn-snow', 'relic-bar',
+      'btn-snow', 'relic-bar', 'debug-bar', 'btn-debug-relic',
       'prompt', 'tower-panel', 'shop-panel', 'shop-items', 'shop-close', 'minimap', 'banner', 'banner-title', 'banner-sub', 'floaters',
       'wave-preview', 'wave-preview-head', 'wave-preview-list',
       'toast', 'vignette', 'card-modal', 'card-title', 'card-sub', 'cards', 'btn-reroll', 'reroll-cost', 'start-screen', 'btn-start',
@@ -32,6 +32,8 @@ class UI {
     e.btnSound.onclick = () => game.toggleMute();
     e.btnPause.onclick = () => game.togglePause();
     if (e.btnSnow) e.btnSnow.onclick = () => fireSnowShower(game);
+    if (e.btnDebugRelic) e.btnDebugRelic.onclick = () => game.debugGiveRelic();
+    if (DEBUG && e.debugBar) e.debugBar.classList.remove('hidden');
     e.shopClose.onclick = () => this.closeShop();
     e.btnStart.onclick = () => game.start();
     e.btnResume.onclick = () => game.togglePause();

@@ -31,6 +31,14 @@ kbd {
 #relic-bar {
   position: absolute; top: 62px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; max-width: 280px; pointer-events: auto;
 }
+#debug-bar {
+  position: absolute; top: 102px; left: 10px; display: flex; gap: 8px; align-items: center; pointer-events: auto;
+}
+#debug-bar .dbg-label {
+  font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: #ff7ad9;
+  background: rgba(40,10,32,.85); border: 1px solid #ff7ad9; border-radius: 6px; padding: 4px 7px;
+}
+.hud-btn.debug { background: linear-gradient(180deg, #6a2060, #3a1034); border-color: #ff7ad9; color: #ffd6f3; }
 .relic-chip {
   width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
   font-size: 18px; background: rgba(16,18,28,.9); border: 1px solid rgba(255,214,120,.4);
