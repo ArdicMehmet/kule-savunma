@@ -26,7 +26,19 @@ kbd {
 .hud-btn { pointer-events: auto; cursor: pointer; font-family: inherit; transition: transform .1s, border-color .1s; }
 .hud-btn:hover { border-color: #ffd36e; transform: translateY(-1px); }
 .hud-btn.call { background: linear-gradient(180deg, #8f3020, #5a1a12); border-color: #ff9a6a; }
+.hud-btn.snow { background: linear-gradient(180deg, #2a5a78, #163848); border-color: #9fe8ff; }
 .hud-btn.disabled { opacity: .4; pointer-events: none; }
+#relic-bar {
+  position: absolute; top: 62px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; max-width: 280px; pointer-events: auto;
+}
+.relic-chip {
+  width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; background: rgba(16,18,28,.9); border: 1px solid rgba(255,214,120,.4);
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.relic-chip.r-epic { border-color: #c08cff; }
+.relic-chip.r-legendary { border-color: #ffb52e; box-shadow: 0 0 10px rgba(255,181,46,.45); }
+.relic-chip.used { opacity: .4; filter: grayscale(1); }
 .spacer { flex: 1; }
 .ico { font-size: 20px; }
 #gold-val { font-size: 21px; color: #ffd451; min-width: 64px; text-shadow: 0 0 10px rgba(255,200,60,.35); }
@@ -235,6 +247,11 @@ kbd {
 .card.r-orta  { --rc: #4da3ff; --rg: rgba(77,163,255,.45); }
 .card.r-nadir { --rc: #ffb52e; --rg: rgba(255,181,46,.7); }
 .card.r-nadir .face { background: linear-gradient(180deg, #3d3220, #1b1610); animation: rareglow 1.6s ease-in-out infinite; }
+.card.r-common { --rc: #aeb8c2; --rg: rgba(200,210,220,.12); }
+.card.r-epic { --rc: #c08cff; --rg: rgba(192,140,255,.55); }
+.card.r-epic .face { background: linear-gradient(180deg, #322448, #16101f); }
+.card.r-legendary { --rc: #ffb52e; --rg: rgba(255,181,46,.7); }
+.card.r-legendary .face { background: linear-gradient(180deg, #3d3220, #1b1610); animation: rareglow 1.6s ease-in-out infinite; }
 .card.r-tower .face { background: linear-gradient(180deg, #2d2a3d, #15131f); }
 @keyframes rareglow { 0%,100% { box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 18px rgba(255,181,46,.5); } 50% { box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 38px rgba(255,200,80,.95); } }
 .card .rar { font-size: 11px; font-weight: 900; letter-spacing: 2px; color: var(--rc); text-transform: uppercase; }

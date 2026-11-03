@@ -79,13 +79,29 @@ class Hero {
     this.target = t;
     this.attackAnim = 0.25;
     this.mesh.userData.gem.getWorldPosition(_gemPos);
-    g.addProjectile(new Projectile(g, {
-      kind: 'hero', x: _gemPos.x, y: _gemPos.y, z: _gemPos.z, target: t, speed: CFG.hero.projSpeed,
-      onHit: (x, y, z, e) => {
-        if (e) e.takeDamage(CFG.hero.dmg * this.dmgMult, { src: this });
-        g.fxA.burst(x, y, z, 6, { color: 0x9ff4ff, speed: 2.5, life: 0.3, size: 0.25, gravity: 2 });
-      },
-    }));
+    const n = g.heroShots || 1;
+    const targets = [t];
+    if (n > 1) {
+      const all = [];
+      for (const e of g.enemies) {
+        if (e.dead) continue;
+        const d = dist(e.x, e.z, this.x, this.z);
+        if (d <= CFG.hero.range) all.push({ e, d });
+      }
+      all.sort((a, b) => a.d - b.d);
+      targets.length = 0;
+      for (let i = 0; i < Math.min(n, all.length); i++) targets.push(all[i].e);
+      while (targets.length < n) targets.push(t);
+    }
+    for (const tgt of targets) {
+      g.addProjectile(new Projectile(g, {
+        kind: 'hero', x: _gemPos.x, y: _gemPos.y, z: _gemPos.z, target: tgt, speed: CFG.hero.projSpeed,
+        onHit: (x, y, z, e) => {
+          if (e) e.takeDamage(CFG.hero.dmg * this.dmgMult, { src: this });
+          g.fxA.burst(x, y, z, 6, { color: 0x9ff4ff, speed: 2.5, life: 0.3, size: 0.25, gravity: 2 });
+        },
+      }));
+    }
     Sound.play('hero_shot');
   }
 

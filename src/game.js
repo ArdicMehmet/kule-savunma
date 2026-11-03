@@ -51,6 +51,13 @@ class Game {
     this.castleHp = CFG.castle.maxHp;
     this.speed = 1;
     this.luck = 0; this.heroLevel = 0; this.repairs = 0; this.foundationsBought = 0; this.rerollCount = 0;
+    this.ownedRelics = new Set(); this.relics = {};
+    this.goldMult = 1; this.abilityDmgMult = 1; this.moveMult = 1; this.durMult = 1;
+    this.sellRatio = CFG.sellRatio; this.castleMax = CFG.castle.maxHp; this.heroShots = 1;
+    this.rebornReady = false; this.rebornUsed = false;
+    this.plagueStacks = 0; this.plagueMult = 1; this.weaponWaves = 0;
+    this.snowCd = 0; this.king = null; this.relicPending = 0; this.snowSrc = null;
+    wrapAbilityDurations();
     this.enemies = []; this.towers = []; this.projectiles = []; this.effects = []; this.seeds = [];
     this.grid = new SpatialGrid(4); this._q = [];
     this.stats = { kills: 0, goldEarned: 0, towers: 0 };
@@ -203,13 +210,65 @@ class Game {
     if (bonus > 0) { this.addGold(bonus); this.ui.toast(`⚔️ Dalga erken çağrıldı: +${bonus} 💰`); }
   }
 
+  onWaveStart(n) {
+    if (this.relics.plague) {
+      this.plagueStacks++;
+      this.plagueMult = Math.max(0.4, Math.pow(0.9, this.plagueStacks));
+    }
+    if (this.relics.weapon) {
+      this.weaponWaves = Math.min(10, this.weaponWaves + 1);
+      this.syncHeroDmg();
+    }
+    if (this.snowCd > 0) { this.snowCd--; this.ui.updateSnowButton(); }
+    if (this.king) this.king.onWaveStart();
+  }
+
   onWaveCleared(n) {
+    if (this.king) this.king.onWaveCleared();
+    for (const t of this.towers) if (t.waveFrozen || t.frozenT > 0) t.unfreeze();
     const tips = {
       1: '💡 Kulenin yanına gidip E ile yükselt: her yükseltmede 3 rastgele karttan birini seçersin.',
       2: '💡 Mağazadaki Şans Tılsımı, Orta ve Nadir kartların gelme şansını artırır.',
       3: '💡 Space ile dalgayı erken çağırırsan bonus altın kazanırsın.',
     };
     if (tips[n]) setTimeout(() => this.ui.toast(tips[n]), 2800);
+  }
+
+  syncHeroDmg() {
+    this.hero.dmgMult = (1 + 0.35 * this.heroLevel) * (1 + 0.1 * this.weaponWaves);
+  }
+
+  tryReborn() {
+    if (!this.rebornReady || this.rebornUsed) return false;
+    this.rebornReady = false;
+    this.rebornUsed = true;
+    this.castleHp = 1;
+    this.waves.queue.length = 0;
+    for (const e of this.enemies) if (!e.dead) e.takeDamage(1e9, {});
+    this.ui.banner('🔥 REBORN', 'Kale 1 canla ayakta kaldı!', '#ff6b3b');
+    this.ui.toast('🔥 Reborn: tüm düşmanlar yok oldu.');
+    Sound.play('boss_horn');
+    this.shake(0.85);
+    this.ui.renderRelicBar();
+    return true;
+  }
+
+  flushRelics() {
+    if (this.state === 'cards' || this.state === 'gameover' || this.relicPending <= 0) return;
+    const cards = drawRelics(this, 3);
+    if (!cards.length) { this.relicPending = 0; return; }
+    this.relicPending--;
+    this.openRelicChoice(cards);
+  }
+
+  openRelicChoice(cards) {
+    this.state = 'cards';
+    this.ui.openCards({
+      title: '✨ Relic Seçimi',
+      sub: 'Boss düştü! Üç relicten birini seç.',
+      cards,
+      onPick: (c) => { this.state = 'playing'; applyRelic(this, c.id); this.flushRelics(); },
+    });
   }
 
   gameOver() {
@@ -266,8 +325,18 @@ class Game {
       case 'Space': this.callWave(); break;
       case 'KeyF': this.toggleSpeed(); break;
       case 'KeyM': this.toggleMute(); break;
+      case 'KeyC': fireSnowShower(this); break;
       case 'KeyG': if (DEBUG) this.addGold(1000); break;
       case 'KeyK': if (DEBUG) for (const e of this.enemies) e.takeDamage(1e9, {}); break;
+      case 'KeyL': if (DEBUG) { this.relicPending++; this.flushRelics(); } break;
+      case 'KeyN':
+        if (DEBUG && this.waves.state === 'break') {
+          this.waves.wave = Math.max(this.waves.wave, 9);
+          this.waves.next = null;
+          this.waves.prepareNext();
+          this.waves.timer = 0.15;
+        }
+        break;
     }
   }
 
@@ -324,6 +393,7 @@ class Game {
     this.updateCamera(dt);
     const q = this.camera.quaternion;
     for (const e of this.enemies) if (e.hpBar.visible) e.hpBar.quaternion.copy(q);
+    if (this.king && this.king.alive) this.king.hpBar.quaternion.copy(q);
     this.ui.update(this.state === 'playing' ? dt * this.speed : dt);
     this.renderer.render(this.scene, this.camera);
   }
@@ -331,6 +401,7 @@ class Game {
   step(dt) {
     this.waves.update(dt);
     this.hero.update(dt, this.input);
+    if (this.king) this.king.update(dt);
     const en = this.enemies;
     for (let i = 0; i < en.length; i++) en[i].update(dt, this.time);
     let w = 0;
@@ -390,7 +461,7 @@ class Game {
   shake(a) { this.camShake = Math.min(0.9, this.camShake + a); }
 
   updateCastleFx(dt) {
-    const k = 1 - this.castleHp / CFG.castle.maxHp;
+    const k = 1 - this.castleHp / this.castleMax;
     if (k < 0.25) return;
     this.smokeT -= dt;
     if (this.smokeT > 0) return;
@@ -557,7 +628,7 @@ class Game {
           return o.draw();
         },
       },
-      onPick: (c) => { this.state = 'playing'; Sound.play('card_pick'); o.onPick(c); },
+      onPick: (c) => { this.state = 'playing'; Sound.play('card_pick'); o.onPick(c); this.flushRelics(); },
     });
   }
 
@@ -643,7 +714,7 @@ class Game {
 
   shopItems() {
     const nadir = (l) => Math.round(CFG.rarity.nadir.weight + CFG.luckShift.nadir * l);
-    const max = CFG.castle.maxHp;
+    const max = this.castleMax;
     return [
       { id: 'foundation', icon: '🧱', name: 'Kule Temeli',
         desc: 'Kahramanının yakınına bir temel yerleştir. Yanına gidip <kbd>E</kbd> ile 3 rastgele kuleden birini seç. Kısayol: <kbd>T</kbd>',
@@ -673,9 +744,9 @@ class Game {
         break;
       }
       case 'repair': {
-        if (this.castleHp >= CFG.castle.maxHp || !this.spend(this.repairCost())) return;
+        if (this.castleHp >= this.castleMax || !this.spend(this.repairCost())) return;
         this.repairs++;
-        this.castleHp = Math.min(CFG.castle.maxHp, this.castleHp + 5);
+        this.castleHp = Math.min(this.castleMax, this.castleHp + 5);
         Sound.play('build');
         const c = CFG.castle;
         this.ui.floatText(c.x, 6, c.z, '+5 ❤️', '#7ee787', 20);
@@ -692,7 +763,7 @@ class Game {
       case 'hero': {
         if (this.heroLevel >= 8 || !this.spend(this.heroCost())) return;
         this.heroLevel++;
-        this.hero.dmgMult = 1 + 0.35 * this.heroLevel;
+        this.syncHeroDmg();
         this.hero.rateMult = 1 + 0.1 * this.heroLevel;
         Sound.play('upgrade');
         this.addFx(new RingPulseFx(this, this.hero.x, this.hero.z, 3, 0x9ff4ff, 0.5));
@@ -728,14 +799,17 @@ class Game {
 
   onEnemyKilled(e, src) {
     this.stats.kills++;
-    this.addGold(e.gold);
-    this.ui.floatText(e.x, e.visHeight + 0.6, e.z, `+${e.gold}`, '#ffd451', e.isBoss ? 24 : 14);
+    const gold = Math.max(1, Math.round(e.gold * this.goldMult));
+    this.addGold(gold);
+    this.ui.floatText(e.x, e.visHeight + 0.6, e.z, `+${gold}`, '#ffd451', e.isBoss ? 24 : 14);
     Sound.play(e.isBoss ? 'boss_die' : 'enemy_die', 0.7);
     this.fxN.burst(e.x, e.T.height * 0.5, e.z, e.isBoss ? 40 : 10, { color: e.T.color, speed: 3, life: 0.6, size: 0.3, gravity: 6 });
     if (e.isBoss) {
       fxExplosion(this, e.x, e.z, 4, 0xff5030);
       this.shake(0.6);
-      this.ui.toast(`☠️ ${e.T.name} yenildi! +${e.gold} 💰`);
+      this.ui.toast(`☠️ ${e.T.name} yenildi! +${gold} 💰`);
+      this.relicPending++;
+      this.flushRelics();
     }
     if (e.poison > 0) {
       const ps = e.poisonSrc;
@@ -759,7 +833,7 @@ class Game {
     this.fxA.burst(e.x, 1, e.z, 16, { color: 0xff5040, speed: 3, life: 0.5, size: 0.4, gravity: 2 });
     this.shake(0.3);
     Sound.play('leak');
-    if (this.castleHp <= 0) this.gameOver();
+    if (this.castleHp <= 0 && !this.tryReborn()) this.gameOver();
   }
 
   // ---------------- Sorgular ----------------

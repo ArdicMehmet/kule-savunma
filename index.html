@@ -20,7 +20,9 @@
     <button id="btn-speed" class="hud-btn">⏩ 1x <kbd>F</kbd></button>
     <button id="btn-sound" class="hud-btn">🔊 <kbd>M</kbd></button>
     <button id="btn-pause" class="hud-btn">⏸ <kbd>P</kbd></button>
+    <button id="btn-snow" class="hud-btn snow hidden">🌨️ Çığ <kbd>C</kbd></button>
   </div>
+  <div id="relic-bar" class="hidden"></div>
 
   <div id="prompt" class="hidden"></div>
   <div id="tower-panel" class="hidden"></div>
@@ -33,7 +35,7 @@
 
   <div id="minimap-wrap"><canvas id="minimap" width="220" height="184"></canvas></div>
   <div id="help-line">
-    <kbd>WASD</kbd> Hareket · <kbd>Shift</kbd> Koş · <kbd>E</kbd> Etkileşim · <kbd>B</kbd> Mağaza · <kbd>Tekerlek</kbd> Yakınlaştır · <kbd>Tık</kbd> Kule bilgisi
+    <kbd>WASD</kbd> Hareket · <kbd>Shift</kbd> Koş · <kbd>E</kbd> Etkileşim · <kbd>B</kbd> Mağaza · <kbd>C</kbd> Çığ · <kbd>Tekerlek</kbd> Yakınlaştır · <kbd>Tık</kbd> Kule bilgisi
   </div>
   <div id="wave-preview" class="hidden">
     <div class="wp-head" id="wave-preview-head">Gelecek dalga</div>
@@ -66,7 +68,7 @@
       <div><b>1.</b> <kbd>B</kbd> ile mağazadan <b>Kule Temeli</b> al, kahramanının yakınında yolun kenarına yerleştir.</div>
       <div><b>2.</b> Temelin yanına gidip <kbd>E</kbd> bas: rastgele gelen <b>3 kuleden birini</b> seç.</div>
       <div><b>3.</b> Kuleyi altınla yükselt: her yükseltmede <b>şansa bağlı 3 kart</b> çıkar (Temel / Orta / Nadir).</div>
-      <div><b>4.</b> Dalgalar giderek güçlenir; her 5 dalgada bir <b>Boss</b> gelir. Kaleni koru!</div>
+      <div><b>4.</b> Dalgalar giderek güçlenir; her 10 dalgada bir <b>Boss</b> gelir. Bosslar relic bırakır. Kaleni koru!</div>
     </div>
     <div id="best-record"></div>
   </div>
@@ -109,6 +111,7 @@
 <script src="src/towers.js"></script>
 <script src="src/hero.js"></script>
 <script src="src/waves.js"></script>
+<script src="src/relics.js"></script>
 <script src="src/ui.js"></script>
 <script src="src/game.js"></script>
 </body>

@@ -14,6 +14,7 @@ class Tower {
     this.buffHaste = 0; this.buffPoison = 0; this.buffSummon = 1; this.buffFrom = null; this.buffFxT = rand(0, 0.5);
     this.attackTimer = 0.3; this.overloadT = 0; this.overloadBonus = 0;
     this.castT = 0; this.buildT = 1; this.time = rand(0, 10); this.emberT = 0;
+    this.frozenT = 0; this.waveFrozen = false; this.iceLock = null;
     this.removed = false;
     this.radius = CFG.foundationRadius;
     this.group = new THREE.Group();
@@ -99,10 +100,35 @@ class Tower {
   enemiesInRange(range) { return this.game.enemiesInRadius(this.x, this.z, range); }
   castAnim() { this.castT = 1; }
 
+  freeze(dur, waveLock) {
+    this.frozenT = Math.max(this.frozenT || 0, dur);
+    if (waveLock) this.waveFrozen = true;
+    if (!this.iceLock) {
+      this.iceLock = glowSprite(0xbfeeff, 4.2, 0.7);
+      this.iceLock.position.y = 2.4;
+      this.group.add(this.iceLock);
+    }
+    this.iceLock.visible = true;
+  }
+  unfreeze() {
+    this.frozenT = 0;
+    this.waveFrozen = false;
+    if (this.iceLock) this.iceLock.visible = false;
+  }
+  get isFrozen() { return this.waveFrozen || this.frozenT > 0; }
+
   // ---------- Güncelleme ----------
   update(dt) {
     this.time += dt;
     this.animate(dt);
+    if (this.isFrozen) {
+      if (this.iceLock) this.iceLock.material.opacity = 0.4 + 0.25 * Math.sin(this.time * 6);
+      if (!this.waveFrozen) {
+        this.frozenT -= dt;
+        if (this.frozenT <= 0) this.unfreeze();
+      }
+      return;
+    }
     if (!this.type) return;
     if (!this.isSupport) {
       if (this.overloadT > 0) this.overloadT -= dt;
@@ -320,7 +346,7 @@ class Tower {
 
   // ---------- Kartlar ----------
   upgradeCost() { return this.type ? CFG.upgradeCost(this.level) : CFG.towerChoiceCost; }
-  sellValue() { return Math.floor(this.spent * CFG.sellRatio); }
+  sellValue() { return Math.floor(this.spent * (this.game.sellRatio != null ? this.game.sellRatio : CFG.sellRatio)); }
 
   basicCardInfo(id) {
     if (id !== 'special') return BASIC_CARDS[id];
@@ -410,7 +436,11 @@ class Tower {
       pool.push({ kind: 'ability', id, rarity: d.rarity });
     }
     const luck = this.game.luck;
-    const weight = (r) => Math.max(1, CFG.rarity[r].weight + CFG.luckShift[r] * luck);
+    const weight = (r) => {
+      let w = CFG.rarity[r].weight + CFG.luckShift[r] * luck;
+      if (this.game.relics && this.game.relics.lucky && r === 'nadir') w *= 1.15;
+      return Math.max(1, w);
+    };
     const result = [];
     for (let i = 0; i < count; i++) {
       const remaining = pool.filter((c) => !result.includes(c));

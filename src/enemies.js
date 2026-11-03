@@ -16,6 +16,23 @@ const ENEMY_TYPES = {
   boss:   { name: 'İblis Lordu', icon: '👿', hp: 1800, speed: 1.15, armor: 30, gold: 150, dmg: 6, radius: 1.2, scale: 1.7, height: 4.3, color: 0xff3030, armored: true, boss: true },
 };
 
+const BOSS_DEFS = [
+  { id: 'brute', name: 'Taş Efendisi', icon: '🗿', hp: 1700, armor: 28, gold: 180, dmg: 7, immune: null, ability: null, model: 'brute', color: 0x8a3030, scale: 1.7, height: 4.3 },
+  { id: 'dragon', name: 'Kor Ejderha', icon: '🐉', hp: 2100, armor: 22, gold: 240, dmg: 8, immune: 'fire', ability: 'stun', model: 'dragon', color: 0xc43a18, scale: 1.55, height: 3.4 },
+  { id: 'frost', name: 'Buz Titanı', icon: '🧊', hp: 2500, armor: 38, gold: 300, dmg: 8, immune: 'ice', ability: 'freeze_wave', model: 'frostboss', color: 0x7ec8e8, scale: 1.6, height: 3.6 },
+  { id: 'storm', name: 'Fırtına Lordu', icon: '⚡', hp: 2900, armor: 24, gold: 360, dmg: 9, immune: 'storm', ability: 'stun', model: 'boss', color: 0xb48cff, scale: 1.7, height: 4.3 },
+  { id: 'venom', name: 'Veba Şamanı', icon: '☠️', hp: 3400, armor: 18, gold: 430, dmg: 9, immune: 'acid', ability: 'stun', model: 'witch', color: 0x8cff4a, scale: 1.85, height: 3.6 },
+  { id: 'lich', name: 'Ruh Lich', icon: '💀', hp: 4000, armor: 30, gold: 520, dmg: 10, immune: 'death', ability: 'freeze_wave', model: 'boss', color: 0xa45cff, scale: 1.75, height: 4.4 },
+  { id: 'root', name: 'Kök Dev', icon: '🌳', hp: 4700, armor: 42, gold: 620, dmg: 11, immune: 'life', ability: 'stun', model: 'golem', color: 0x5fe08a, scale: 1.7, height: 3.8 },
+];
+function bossDefForWave(n) {
+  const i = Math.max(0, Math.round(n / 10) - 1);
+  const d = BOSS_DEFS[Math.min(i, BOSS_DEFS.length - 1)];
+  if (i < BOSS_DEFS.length) return d;
+  return { ...d, hp: Math.round(d.hp * (1 + 0.22 * (i - BOSS_DEFS.length + 1))), gold: Math.round(d.gold * (1 + 0.15 * (i - BOSS_DEFS.length + 1))) };
+}
+function isBossWave(n) { return n > 0 && n % 10 === 0; }
+
 function damageElem(opts) {
   if (!opts) return null;
   if (opts.elem) return opts.elem;
@@ -53,11 +70,16 @@ const _smp2 = { x: 0, z: 0, tx: 0, tz: 1 };
 class Enemy {
   constructor(game, typeId, path, wave, lateral, extra) {
     extra = extra || {};
-    const T = ENEMY_TYPES[typeId];
-    this.game = game; this.type = typeId; this.T = T; this.path = path; this.wave = wave;
-    this.maxHp = this.hp = T.hp * WAVE_SCALE.hp(wave);
+    const base = ENEMY_TYPES[typeId];
+    const bd = extra.boss;
+    const T = bd ? {
+      ...base, name: bd.name, icon: bd.icon, hp: bd.hp, armor: bd.armor, gold: bd.gold, dmg: bd.dmg || base.dmg,
+      color: bd.color, scale: bd.scale || base.scale, height: bd.height || base.height, boss: true, armored: true,
+    } : base;
+    this.game = game; this.type = typeId; this.T = T; this.path = path; this.wave = wave; this.bossDef = bd || null;
+    this.maxHp = this.hp = T.hp * WAVE_SCALE.hp(wave) * (game.plagueMult || 1);
     this.armor = T.armor + (T.armored ? WAVE_SCALE.armor(wave) : 0);
-    this.speed = T.speed * WAVE_SCALE.speed(wave) * rand(0.94, 1.06);
+    this.speed = T.speed * WAVE_SCALE.speed(wave) * (game.moveMult || 1) * rand(0.94, 1.06);
     this.gold = Math.max(1, Math.round(T.gold * WAVE_SCALE.gold(wave)));
     this.radius = T.radius;
     this.isBoss = !!T.boss;
@@ -73,16 +95,17 @@ class Enemy {
     this.curseT = 0; this.curseSrc = null; this.goldMark = null;
     this.decayAmt = 0; this.decayT = 0; this.kb = 0;
     this.flash = 0; this.walk = rand(0, 6); this.fxT = rand(0, 1);
-    this.immune = extra.immune || null;
+    this.immune = extra.immune || (bd && bd.immune) || null;
     this.immFlash = 0;
     this.mounted = !!T.mounted;
     this.summoner = extra.summoner || null;
     this.summoned = !!T.summoned || !!extra.summoned;
     this.summons = 0;
     this.castT = T.healer || T.summoner ? rand(0.8, 1.8) : 0;
+    this.bossCd = this.isBoss ? 1.1 : 0;
 
     this.mat = MAT.vc.clone();
-    this.mesh = new THREE.Mesh(Models.enemyGeometry(typeId), this.mat);
+    this.mesh = new THREE.Mesh(Models.enemyGeometry(bd && bd.model ? bd.model : typeId), this.mat);
     this.mesh.castShadow = true;
     this.mesh.scale.setScalar(T.scale);
     this.group = new THREE.Group();
@@ -131,13 +154,14 @@ class Enemy {
     }
     let dmg = amount;
     const dot = opts && opts.dot;
+    if (!dot && src && src.isTower && !(opts && opts.basic) && this.game.abilityDmgMult > 1) dmg *= this.game.abilityDmgMult;
     if (!dot) {
       const a = this.armor - this.shred;
       dmg *= a >= 0 ? 100 / (100 + a) : 2 - 100 / (100 - a);
       this.flash = 0.07;
     }
     this.hp -= dmg;
-    if (src) src.totalDamage += dmg;
+    if (src && src.totalDamage != null) src.totalDamage += dmg;
     this.hpBar.visible = true;
     this.hpFg.scale.x = Math.max(0.001, (this.hp / this.maxHp) * this.barW);
     if (!dot && src && src.isTower && !opts.basic && this.game.seeds.length) this.game.triggerSeeds(this.x, this.z);
@@ -231,6 +255,25 @@ class Enemy {
     this.decayT = Math.max(this.decayT, dur);
   }
   get leakDamage() { return this.T.dmg * (this.decayT > 0 ? 1 - this.decayAmt : 1); }
+  tickBossAbility(dt) {
+    const ab = this.bossDef && this.bossDef.ability;
+    if (!ab) return;
+    this.bossCd -= dt;
+    if (this.bossCd > 0) return;
+    const towers = this.game.towers.filter((t) => t.type && !t.removed && !t.waveFrozen);
+    if (!towers.length) { this.bossCd = 2; return; }
+    const t = choice(towers);
+    if (ab === 'freeze_wave') {
+      t.freeze(1e9, true);
+      this.game.ui.toast(`${this.T.icon} ${t.name} bu dalga boyunca dondu!`, true);
+      this.bossCd = 999;
+    } else {
+      t.freeze(3.6, false);
+      this.game.ui.toast(`${this.T.icon} ${t.name} sersemledi!`, true);
+      this.bossCd = 7.5;
+    }
+    Sound.play('freeze');
+  }
   pushBack(amount) {
     this.dist = Math.max(0, this.dist - amount * (this.isBoss ? 0.4 : 1));
     this.blockT = 0.1;
@@ -328,9 +371,24 @@ class Enemy {
       if (this.castT <= 0) { this.castT = Math.max(3.4, this.T.summonCd - this.wave * 0.08); this.summonSkeleton(); }
     }
     if (this.castFlash > 0) this.castFlash -= dt;
+    if (this.isBoss) this.tickBossAbility(dt);
 
     const mult = this.rootT > 0 || this.blockT > 0 ? 0 : 1 - this.slowAmt;
-    this.dist += this.speed * mult * dt;
+    let step = this.speed * mult * dt;
+    const king = this.game.king;
+    if (king && king.alive && king.path === this.path) {
+      const stop = king.dist - this.radius - 0.75;
+      if (this.dist + step >= stop) {
+        this.dist = Math.min(this.dist, stop);
+        step = 0;
+        this.kingAtk = (this.kingAtk || 0) - dt;
+        if (this.kingAtk <= 0) {
+          this.kingAtk = 0.85;
+          king.takeHit(this.T.dmg * 4);
+        }
+      }
+    }
+    this.dist += step;
     if (this.dist >= this.path.length) { this.game.enemyLeaked(this); return; }
     if (this.pullT > 0) this.pullT -= dt;
     else if (this.dispX !== 0 || this.dispZ !== 0) {

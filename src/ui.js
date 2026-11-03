@@ -1,6 +1,6 @@
 'use strict';
 
-const RARITY_LABEL = { temel: 'TEMEL', orta: 'ORTA', nadir: 'NADİR', tower: 'KULE' };
+const RARITY_LABEL = { temel: 'TEMEL', orta: 'ORTA', nadir: 'NADİR', tower: 'KULE', common: 'YAYGIN', epic: 'DESTANSI', legendary: 'EFSANEVİ' };
 const _proj = new THREE.Vector3();
 
 class UI {
@@ -9,6 +9,7 @@ class UI {
     const $ = (id) => document.getElementById(id);
     this.el = {};
     ['hud', 'gold-val', 'castle-bar', 'castle-val', 'wave-val', 'wave-status', 'btn-call', 'btn-shop', 'btn-speed', 'btn-sound', 'btn-pause',
+      'btn-snow', 'relic-bar',
       'prompt', 'tower-panel', 'shop-panel', 'shop-items', 'shop-close', 'minimap', 'banner', 'banner-title', 'banner-sub', 'floaters',
       'wave-preview', 'wave-preview-head', 'wave-preview-list',
       'toast', 'vignette', 'card-modal', 'card-title', 'card-sub', 'cards', 'btn-reroll', 'reroll-cost', 'start-screen', 'btn-start',
@@ -30,6 +31,7 @@ class UI {
     e.btnSpeed.onclick = () => game.toggleSpeed();
     e.btnSound.onclick = () => game.toggleMute();
     e.btnPause.onclick = () => game.togglePause();
+    if (e.btnSnow) e.btnSnow.onclick = () => fireSnowShower(game);
     e.shopClose.onclick = () => this.closeShop();
     e.btnStart.onclick = () => game.start();
     e.btnResume.onclick = () => game.togglePause();
@@ -164,7 +166,7 @@ class UI {
       }
       this.lastGold = gold;
     }
-    const max = CFG.castle.maxHp;
+    const max = g.castleMax || CFG.castle.maxHp;
     e.castleBar.style.width = (100 * Math.max(0, g.castleHp) / max) + '%';
     e.castleVal.textContent = `${Math.ceil(Math.max(0, g.castleHp))}/${max}`;
     e.waveVal.textContent = `Dalga ${W.wave}`;
@@ -253,6 +255,7 @@ class UI {
         if (t.type === 'death') rows.push(['👻 Ruhlar', fmt(t.souls)], ['Ruh bonusu', '+' + pct(soulBonus(t.souls))]);
         rows.push(['Toplam hasar', fmt(t.totalDamage)], ['Öldürme', t.kills]);
       }
+      if (t.isFrozen) body += `<div class="tp-buff" style="color:#9fe8ff">❄️ ${t.waveFrozen ? 'Bu dalga boyunca dondu' : 'Sersemledi'}</div>`;
       body += `<div class="tp-desc">${t.def.desc}</div><div class="tp-stats">` +
         rows.map(([a, b]) => `<div class="tp-stat"><span>${a}</span><span>${b}</span></div>`).join('') + '</div>';
       if (t.buffFrom) {
@@ -327,8 +330,8 @@ class UI {
       setTimeout(() => {
         d.classList.add('revealed');
         Sound.play('card_flip');
-        if (c.rarity === 'nadir') Sound.play('card_nadir');
-        else if (c.rarity === 'orta') Sound.play('card_orta');
+        if (c.rarity === 'nadir' || c.rarity === 'legendary') Sound.play('card_nadir');
+        else if (c.rarity === 'orta' || c.rarity === 'epic') Sound.play('card_orta');
       }, 200 + i * 260);
     });
   }
@@ -357,6 +360,32 @@ class UI {
   }
 
   // ---------------- Bitiş ----------------
+  renderRelicBar() {
+    const el = this.el.relicBar;
+    if (!el) return;
+    const ids = [...this.game.ownedRelics];
+    if (!ids.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    el.classList.remove('hidden');
+    el.innerHTML = ids.map((id) => {
+      const d = RELIC_DEFS[id];
+      const used = id === 'reborn' && this.game.rebornUsed;
+      return `<div class="relic-chip r-${d.rarity}${used ? ' used' : ''}" title="${d.name}: ${d.desc}">${d.icon}</div>`;
+    }).join('');
+  }
+  setSnowVisible(on) {
+    if (!this.el.btnSnow) return;
+    this.el.btnSnow.classList.toggle('hidden', !on);
+    this.updateSnowButton();
+  }
+  updateSnowButton() {
+    const b = this.el.btnSnow;
+    if (!b || !this.game.relics.snow) return;
+    const cd = this.game.snowCd;
+    b.disabled = cd > 0;
+    b.classList.toggle('disabled', cd > 0);
+    b.innerHTML = cd > 0 ? `🌨️ Çığ (${cd} dalga)` : '🌨️ Çığ <kbd>C</kbd>';
+  }
+
   showGameOver(stats) {
     const e = this.el;
     e.goStats.innerHTML = `Ulaştığın dalga: <b>${stats.wave}</b><br>Öldürülen düşman: <b>${stats.kills}</b><br>` +
@@ -415,6 +444,10 @@ class UI {
       g.fillStyle = e.immune && TOWER_TYPES[e.immune] ? TOWER_TYPES[e.immune].color : (e.isBoss ? '#ffa21a' : '#ff4a3a');
       const r = e.isBoss ? 4 : 2.4;
       g.fillRect(this.mx(e.x) - r / 2, this.my(e.z) - r / 2, r, r);
+    }
+    if (game.king && game.king.alive) {
+      g.fillStyle = '#ffd451'; g.strokeStyle = '#fff'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(this.mx(game.king.x), this.my(game.king.z), 5, 0, Math.PI * 2); g.fill(); g.stroke();
     }
     const h = game.hero;
     g.fillStyle = '#ffffff'; g.strokeStyle = '#1f6feb'; g.lineWidth = 2;

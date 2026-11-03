@@ -34,7 +34,10 @@ class WaveManager {
     if (this.game.enemies.length < CFG.maxEnemies) this.t += dt;
     while (this.queue.length && this.queue[0].t <= this.t) {
       const s = this.queue.shift();
-      this.game.spawnEnemy(s.type, s.path, this.wave, s.lateral, s.immune ? { immune: s.immune } : undefined);
+      const extra = {};
+      if (s.immune) extra.immune = s.immune;
+      if (s.boss) extra.boss = s.boss;
+      this.game.spawnEnemy(s.type, s.path, this.wave, s.lateral, extra);
     }
     if (!this.queue.length && this.game.aliveEnemies() === 0) this.waveCleared();
   }
@@ -59,7 +62,7 @@ class WaveManager {
     this.state = 'active';
     this.next = null;
     for (const u of planned.summary.units) {
-      this.seenTypes.add(u.id);
+      this.seenTypes.add(u.seenKey || u.id);
       for (const im of u.immunes) this.seenImm.add(im.id);
     }
     const n = this.wave;
@@ -73,11 +76,18 @@ class WaveManager {
         }
       }
     });
-    const boss = n % 5 === 0;
-    this.game.ui.banner(`DALGA ${n}`, boss ? '☠️ BOSS DALGASI! ☠️' : this.hint(n, planned.summary), boss ? '#ff6b5b' : '#ffffff');
+    const boss = isBossWave(n);
+    const def = boss ? bossDefForWave(n) : null;
+    let sub = this.hint(n, planned.summary);
+    if (def) {
+      const imm = def.immune && TOWER_TYPES[def.immune];
+      sub = `${def.icon} ${def.name}` + (imm ? ` · ${imm.icon} ${elementLabel(def.immune)} bağışık` : '');
+    }
+    this.game.ui.banner(`DALGA ${n}`, sub, boss ? '#ff6b5b' : '#ffffff');
     this.game.ui.hideWavePreview(2400);
     Sound.play(boss ? 'boss_horn' : 'wave_start');
     Sound.setIntensity(boss ? 2 : 1);
+    this.game.onWaveStart(n);
   }
 
   callEarly() {
@@ -121,18 +131,21 @@ class WaveManager {
   summarize(list, n) {
     const map = {};
     for (const s of list) {
-      if (!map[s.type]) map[s.type] = { id: s.type, count: 0, immunes: {} };
-      map[s.type].count++;
-      if (s.immune) map[s.type].immunes[s.immune] = (map[s.type].immunes[s.immune] || 0) + 1;
+      const key = s.boss ? 'boss:' + s.boss.id : s.type;
+      if (!map[key]) map[key] = { id: s.type, boss: s.boss || null, count: 0, immunes: {} };
+      map[key].count++;
+      if (s.immune) map[key].immunes[s.immune] = (map[key].immunes[s.immune] || 0) + 1;
     }
     const units = Object.values(map).map((u) => {
       const T = ENEMY_TYPES[u.id];
+      const seenKey = u.boss ? 'boss:' + u.boss.id : u.id;
       return {
         id: u.id,
-        name: T ? T.name : u.id,
-        icon: T ? T.icon : '❓',
+        seenKey,
+        name: u.boss ? u.boss.name : (T ? T.name : u.id),
+        icon: u.boss ? u.boss.icon : (T ? T.icon : '❓'),
         count: u.count,
-        isNew: !this.seenTypes.has(u.id),
+        isNew: !this.seenTypes.has(seenKey),
         immunes: Object.keys(u.immunes).map((id) => {
           const tw = TOWER_TYPES[id];
           return {
@@ -166,11 +179,6 @@ class WaveManager {
     for (const s of pool) {
       if (s.immune) continue;
       if (Math.random() < frac) s.immune = choice(elems);
-    }
-    if (n >= 10) {
-      for (const s of list) {
-        if (s.type === 'boss' && Math.random() < 0.65) s.immune = choice(elems);
-      }
     }
   }
 
@@ -212,16 +220,14 @@ class WaveManager {
         list.push({ t: t + i * 0.35, type: u.id, path: choice(paths), lateral: rand(-1.1, 1.1) });
       }
     }
-    if (n % 5 === 0) {
-      const bosses = 1 + Math.floor(n / 20);
+    if (isBossWave(n)) {
+      const def = bossDefForWave(n);
       const escort = n >= 16 ? 'orc' : n >= 6 ? 'knight' : 'goblin';
-      for (let b = 0; b < bosses; b++) {
-        const path = choice(paths);
-        t += 2;
-        list.push({ t, type: 'boss', path, lateral: 0 });
-        const esc = 4 + Math.floor(n / 5);
-        for (let k = 0; k < esc; k++) list.push({ t: t + 0.6 + k * 0.35, type: escort, path, lateral: rand(-1.1, 1.1) });
-      }
+      const path = choice(paths);
+      t += 2;
+      list.push({ t, type: 'boss', path, lateral: 0, immune: def.immune || undefined, boss: def });
+      const esc = 4 + Math.floor(n / 5);
+      for (let k = 0; k < esc; k++) list.push({ t: t + 0.6 + k * 0.35, type: escort, path, lateral: rand(-1.1, 1.1) });
     }
     this.assignImmunities(list, n);
     list.sort((a, b) => a.t - b.t);
