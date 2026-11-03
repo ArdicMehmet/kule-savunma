@@ -275,22 +275,26 @@ class UI {
       let rows;
       if (t.isSupport) {
         const buffed = g.towers.filter((o) => o.type && !o.isSupport && dist(o.x, o.z, t.x, t.z) <= t.range).length;
-        rows = [['Etki alanı', fmt(t.range) + ' m'], ['Güçlenen kule', buffed], ['Hız bonusu', '+' + pct(t.auraHaste)],
-          ['Zehir şansı', pct(t.auraPoison)], ['Çağrı hasarı', '+' + pct(t.auraSummon)], ['Toplam hasar', fmt(t.totalDamage)]];
+        rows = [['Etki alanı', fmt(t.range) + ' m'], ['Buf süresi', pct(t.auraDur || 1)], ['Güçlenen kule', buffed],
+          ['Hasar bufu', '+' + pct(t.auraDmg || 0)], ['Hız bufu', '+' + pct(t.auraHaste || 0)],
+          ['Yetenek hasarı', '+' + pct(t.auraAbil || 0)], ['DoT bufu', '+' + pct(t.auraDot || 0)]];
       } else {
-        const sp = t.basicReader('special');
-        rows = [['Hasar', fmt(t.damage)], ['Hız', fmt(t.currentRate) + '/sn'], ['Menzil', fmt(t.range) + ' m'], [sp[0], sp[1]()]];
-        if (t.type === 'death') rows.push(['👻 Ruhlar', fmt(t.souls)], ['Ruh bonusu', '+' + pct(soulBonus(t.souls))]);
+        rows = [['Hasar', fmt(t.currentDamage)], ['Hız', fmt(t.currentRate) + '/sn'], ['Menzil', fmt(t.range) + ' m']];
+        const extraId = t.type === 'slime' ? 's_stun' : (t.type === 'unity' ? 'u_summon_dmg' : 'special');
+        const sp = t.basicReader(extraId);
+        rows.push([sp[0], sp[1]()]);
         rows.push(['Toplam hasar', fmt(t.totalDamage)], ['Öldürme', t.kills]);
       }
       if (t.isFrozen) body += `<div class="tp-buff" style="color:#9fe8ff">❄️ ${t.waveFrozen ? 'Bu dalga boyunca dondu' : 'Sersemledi'}</div>`;
       body += `<div class="tp-desc">${t.def.desc}</div><div class="tp-stats">` +
         rows.map(([a, b]) => `<div class="tp-stat"><span>${a}</span><span>${b}</span></div>`).join('') + '</div>';
       if (t.buffFrom) {
-        const parts = ['+' + pct(t.buffHaste) + ' saldırı hızı'];
-        if (t.buffPoison > 0) parts.push(pct(t.buffPoison) + ' zehir şansı');
-        if (t.buffSummon > 1 && t.type === 'death') parts.push('+' + pct(t.buffSummon - 1) + ' zombi hasarı');
-        body += `<div class="tp-buff">🌳 Yaşam bufu: ${parts.join(', ')}</div>`;
+        const parts = [];
+        if (t.buffHaste > 0) parts.push('+' + pct(t.buffHaste) + ' hız');
+        if (t.buffDmg > 0) parts.push('+' + pct(t.buffDmg) + ' hasar');
+        if (t.buffAbil > 1) parts.push('+' + pct(t.buffAbil - 1) + ' yetenek');
+        if (t.buffDot > 1) parts.push('+' + pct(t.buffDot - 1) + ' DoT');
+        if (parts.length) body += `<div class="tp-buff">🌳 Yaşam bufu: ${parts.join(', ')}</div>`;
       }
       const chips = t.basics.filter((k) => t.cards[k] > 0)
         .map((k) => { const i = t.basicCardInfo(k); return `<span class="tp-chip">${i.icon} ${i.name} x${t.cards[k]}</span>`; }).join('');

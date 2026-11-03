@@ -172,7 +172,7 @@ class WindWallFx extends Fx {
 }
 
 ABILITY_IMPL.wind_wall = {
-  params(L) { return { dur: 3 + 0.6 * (L - 1), push: 3.5 + 0.6 * (L - 1), cd: 12, halfWidth: 3.2 }; },
+  params(L) { return { dur: 2.4 + 0.35 * (L - 1), push: 2.6 + 0.35 * (L - 1), cd: 22, halfWidth: 3.0 }; },
   stats(L, tw) { const p = this.params(L, tw); return [['İtme', fmt(p.push) + ' m/sn'], ['Süre', sec(p.dur)], ['Bekleme', sec(p.cd)]]; },
   update(tw, ab, dt) {
     const p = this.params(ab.level, tw);

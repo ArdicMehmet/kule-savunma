@@ -25,6 +25,8 @@ function initFxAssets() {
   P.gold = { geo: FXGEO.ico0, mat: basic(0xffd85a), s: [0.26, 0.26, 0.26], glow: glowMat(0xb45cff), gs: 1.9, trail: [0xffd85a, 0xc070ff, 0xfff0a0], tsize: 0.34 };
   P.fairy = { geo: FXGEO.sph, mat: basic(0xf4ffe0), s: [0.1, 0.1, 0.1], glow: glowMat(0x8dff9a), gs: 0.8, trail: [0xb8ffb0, 0xfff6b0], tsize: 0.16 };
   P.seed = { geo: FXGEO.ico0, mat: new THREE.MeshStandardMaterial({ color: 0x7a5a2a, flatShading: true }), s: [0.24, 0.3, 0.24], glow: glowMat(0x5fe08a), gs: 1.0, trail: [0x5fe08a, 0x9cff6a], tsize: 0.26 };
+  P.slime = { geo: FXGEO.sph, mat: basic(0x7dff6a), s: [0.26, 0.26, 0.26], glow: glowMat(0x6adf4a), gs: 1.4, trail: [0x7dff6a, 0xb8ff7a], tsize: 0.28 };
+  P.arrow = { geo: FXGEO.oct, mat: basic(0xe8c36a), s: [0.08, 0.08, 0.42], glow: glowMat(0xffe08a), gs: 0.9, trail: [0xe8c36a, 0xfff0b0], tsize: 0.16 };
   P.rock = { geo: FXGEO.ico0, mat: new THREE.MeshStandardMaterial({ color: 0x7a6650, flatShading: true }), s: [0.32, 0.28, 0.32], glow: glowMat(0x9a7a4a), gs: 0.6, trail: [0x8a7458, 0x6a5a48], tsize: 0.3 };
   FXMAT.proj = P;
   FXMAT.wisp = new THREE.SpriteMaterial({ map: TEX.glow, color: 0xb070ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });

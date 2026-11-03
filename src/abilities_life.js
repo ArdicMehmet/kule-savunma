@@ -1,7 +1,7 @@
 'use strict';
 
 const LIFE_COLORS = [0x7dff9a, 0x5fe08a, 0xc8ffb0, 0xfff6b0];
-const SEED_GLOBAL_MAX = 12;
+const SEED_GLOBAL_MAX = 8;
 const SEED_TRIGGER_R = 1.8;
 
 function vineGeo() {
@@ -76,30 +76,11 @@ class VinesFx extends Fx {
   }
 }
 
-ABILITY_IMPL.vines = {
-  params(L, tw) { return { radius: Math.min(4.2, 1.8 + 0.27 * (L - 1)), root: 2, dur: 3.5, stacks: 1, cd: 10 }; },
-  stats(L, tw) {
-    const p = this.params(L, tw);
-    return [['Alan', fmt(p.radius) + ' m'], ['Sabitleme', sec(p.root)], ['Zehir yükü', p.stacks + ' / 0.5 sn'], ['Bekleme', sec(p.cd)]];
-  },
-  update(tw, ab, dt) {
-    const p = this.params(ab.level, tw);
-    abilityTick(ab, dt, p.cd, () => {
-      const g = tw.game;
-      const t = tw.clusterTarget(tw.range + 2, p.radius);
-      if (!t) return false;
-      const pr = t.predict(0.7, {});
-      g.addProjectile(new Projectile(g, {
-        kind: 'seed', x: tw.x, y: tw.muzzleY, z: tw.z, tx: pr.x, tz: pr.z, arc: true, dur: 0.7, arcH: 3,
-        onHit: (x, y, z) => {
-          if (tw.removed) return;
-          g.addFx(new VinesFx(g, tw, x, z, p));
-          Sound.play('vine', 1);
-        },
-      }));
-      tw.castAnim();
-      return true;
-    });
+ABILITY_IMPL.speed_life = {
+  params(L, tw) { return { haste: 0.10 + 0.04 * (L - 1) }; },
+  stats(L, tw) { return [['Saldırı hızı', '+' + pct(this.params(L, tw).haste)]]; },
+  update(tw, ab) {
+    tw.auraHaste = this.params(ab.level, tw).haste;
   },
 };
 
@@ -180,16 +161,17 @@ class FairyFx extends Fx {
 
 ABILITY_IMPL.fairies = {
   params(L, tw) {
-    return { max: Math.min(10, 1 + L), range: 6.5 + 0.45 * (L - 1), cd: 2.5, shots: 10, rate: 1.6, dmg: 6 * tw.dmgMult * tw.buffSummon };
+    return { max: 10, range: 6.8, cd: 2.2, shots: 10, rate: 1.6, dmg: 6 * tw.dmgMult, abil: 0.08 + 0.04 * (L - 1) };
   },
   stats(L, tw) {
     const p = this.params(L, tw);
-    return [['Peri sayısı', p.max], ['Peri menzili', fmt(p.range) + ' m'], ['Hasar', fmt(p.dmg)], ['Atış / peri', p.shots]];
+    return [['Peri tavanı', p.max], ['Yetenek hasarı', '+' + pct(p.abil)], ['Peri hasarı', fmt(p.dmg)]];
   },
   update(tw, ab, dt) {
+    const p = this.params(ab.level, tw);
+    tw.auraAbil = p.abil;
     ab.timer -= dt;
     if (ab.timer > 0) return;
-    const p = this.params(ab.level, tw);
     if (tw.fairies >= p.max) { ab.timer = 0.4; return; }
     tw.game.addFx(new FairyFx(tw.game, tw, p));
     Sound.play('fairy', 0.8);
@@ -291,31 +273,9 @@ ABILITY_IMPL.seismic = {
 
 // ---------------- Çürüme ----------------
 ABILITY_IMPL.decay = {
-  params(L, tw) { return { amt: Math.min(0.8, 0.3 + 0.055 * (L - 1)), dur: 6, cd: 3.5, radius: tw.range }; },
-  stats(L, tw) {
-    const p = this.params(L, tw);
-    return [['Saldırı gücü', '-' + pct(p.amt)], ['Alan', fmt(p.radius) + ' m'], ['Süre', sec(p.dur)]];
-  },
-  update(tw, ab, dt) {
-    const p = this.params(ab.level, tw);
-    abilityTick(ab, dt, p.cd, () => {
-      const g = tw.game;
-      const list = tw.enemiesInRange(p.radius);
-      if (!list.length) return false;
-      for (const e of list) {
-        e.applyDecay(p.amt, p.dur);
-        g.fxN.burst(e.x, e.T.height, e.z, 4, { color: choice([0x8a6a2a, 0x6a4a1e, 0xa8803a]), speed: 1.2, life: 0.8, size: 0.2, gravity: 2 });
-      }
-      g.addFx(new RingPulseFx(g, tw.x, tw.z, p.radius, 0x9a7a3a, 0.7));
-      for (let i = 0; i < 24; i++) {
-        const a = (i / 24) * Math.PI * 2;
-        g.fxN.emit({ x: tw.x + Math.cos(a) * 1.2, y: 0.5, z: tw.z + Math.sin(a) * 1.2, vx: Math.cos(a) * p.radius * 1.3, vy: 0.4, vz: Math.sin(a) * p.radius * 1.3, life: 0.7, size: 0.4, size2: 0.9, color: 0x6a5a32, alpha: 0.45, drag: 1.5 });
-      }
-      Sound.play('decay', 1);
-      tw.castAnim();
-      return true;
-    });
-  },
+  params(L, tw) { return { amt: 0.18 + 0.07 * (L - 1) }; },
+  stats(L, tw) { return [['Zamanla hasar', '+' + pct(this.params(L, tw).amt)]]; },
+  update(tw, ab) { tw.auraDot = this.params(ab.level, tw).amt; },
 };
 
 // ---------------- Yaşam Tohumları ----------------
@@ -373,7 +333,8 @@ class SeedFx extends Fx {
 
 ABILITY_IMPL.seeds = {
   params(L, tw) {
-    return { max: Math.min(8, 1 + L), dmg: 30 * tw.dmgMult * (1 + 0.3 * (L - 1)), radius: 2.4, stacks: 2, cd: 3.5, life: 14 };
+    const dur = tw.auraDur || 1;
+    return { max: Math.min(6, 1 + L), dmg: 30 * tw.dmgMult * (1 + 0.3 * (L - 1)), radius: 2.4, stacks: 2, cd: 4.6, life: 12 * dur };
   },
   stats(L, tw) {
     const p = this.params(L, tw);

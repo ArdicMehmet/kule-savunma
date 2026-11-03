@@ -605,6 +605,47 @@ const Models = {
       const glow = glowSprite(0x5fe08a, 3.2, 0.75); glow.position.y = 4.5; g.add(glow);
       anim.parts = { canopy, bloom, leaves, glow };
       muzzleY = 4.4;
+    } else if (type === 'unity') {
+      g.add(this.mesh('tower_unity', () => mergeParts([
+        P(G.cyl(0.95, 1.08, 1.4, 8), 0x8a8070, [0, 1.25, 0]),
+        P(G.cyl(0.78, 0.9, 1.5, 8), 0x9a9080, [0, 2.7, 0]),
+        P(G.box(1.7, 0.28, 1.7), 0x6a5a48, [0, 3.52, 0]),
+        P(G.cyl(0.22, 0.22, 1.1, 6), 0x5a4a3a, [0.72, 4.15, 0.72]),
+        P(G.cyl(0.22, 0.22, 1.1, 6), 0x5a4a3a, [-0.72, 4.15, 0.72]),
+        P(G.cyl(0.22, 0.22, 1.1, 6), 0x5a4a3a, [0.72, 4.15, -0.72]),
+        P(G.cyl(0.22, 0.22, 1.1, 6), 0x5a4a3a, [-0.72, 4.15, -0.72]),
+        P(G.cone(0.28, 0.45, 4), 0xc23b3b, [0.72, 4.9, 0.72]),
+        P(G.cone(0.28, 0.45, 4), 0xc23b3b, [-0.72, 4.9, 0.72]),
+        P(G.cone(0.28, 0.45, 4), 0xc23b3b, [0.72, 4.9, -0.72]),
+        P(G.cone(0.28, 0.45, 4), 0xc23b3b, [-0.72, 4.9, -0.72]),
+      ])));
+      const archer = new THREE.Group();
+      archer.add(this.mesh('unity_archer', () => mergeParts([
+        P(G.box(0.28, 0.4, 0.22), 0x4a6a8a, [0, 0.55, 0]),
+        P(G.sph(0.16, 8, 6), 0xe8c8a0, [0, 0.9, 0]),
+        P(G.box(0.08, 0.08, 0.55), 0x6a4a2a, [0.22, 0.6, 0.15], [0.4, 0, 0.2]),
+        P(G.tor(0.22, 0.025, 4, 10), 0xc8a060, [0.28, 0.62, 0.28], [0.2, 0.4, 1.1]),
+      ])));
+      archer.position.y = 3.7;
+      g.add(archer);
+      const glow = glowSprite(0xe8c36a, 2.4, 0.55); glow.position.y = 4.6; g.add(glow);
+      anim.parts = { archer, glow };
+      muzzleY = 4.7;
+    } else if (type === 'slime') {
+      g.add(this.mesh('tower_slime', () => mergeParts([
+        P(G.cyl(0.9, 1.05, 1.15, 8), 0x5a6a48, [0, 1.12, 0]),
+        P(G.cyl(0.7, 0.82, 0.9, 8), 0x4a5a3a, [0, 2.12, 0]),
+        P(G.tor(0.78, 0.08, 5, 12), 0x3a4a2a, [0, 2.55, 0], [PI / 2, 0, 0]),
+      ])));
+      const blob = new THREE.Mesh(G.ico(0.72, 0), new THREE.MeshStandardMaterial({
+        color: 0x6adf4a, emissive: 0x2a8a1a, emissiveIntensity: 0.45, roughness: 0.35, flatShading: true, transparent: true, opacity: 0.92,
+      }));
+      blob.userData.ownMat = true;
+      blob.position.y = 3.35;
+      g.add(blob);
+      const glow = glowSprite(0x7dff6a, 2.8, 0.7); glow.position.y = 3.5; g.add(glow);
+      anim.parts = { blob, glow };
+      muzzleY = 3.9;
     }
     g.traverse((o) => { if (o.isMesh && o.material === MAT.vc) o.castShadow = true; });
     return { group: g, anim, muzzleY };
@@ -633,6 +674,60 @@ const Models = {
     g.add(aura);
     g.userData = { legL, legR, body };
     g.scale.setScalar(1.15);
+    return g;
+  },
+
+  ally(kind) {
+    const g = new THREE.Group();
+    const add = (geo, color, y, s) => {
+      const m = new THREE.Mesh(geo, MAT.vc);
+      // vertex colors via merge for body; simple colored materials for allies
+      m.material = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8 });
+      m.userData.ownMat = true;
+      m.position.y = y;
+      if (s) m.scale.setScalar(s);
+      m.castShadow = true;
+      g.add(m);
+      return m;
+    };
+    if (kind === 'knight') {
+      add(G.box(0.38, 0.55, 0.28), 0x4a5a78, 0.85);
+      add(G.sph(0.16, 8, 6), 0xe8c8a0, 1.25);
+      add(G.box(0.08, 0.55, 0.08), 0xc0c8d4, 1.0).position.x = 0.28;
+      add(G.box(0.22, 0.08, 0.08), 0xc0c8d4, 1.22).position.x = 0.32;
+    } else if (kind === 'guard') {
+      add(G.box(0.5, 0.7, 0.32), 0x6a5a48, 0.9);
+      add(G.sph(0.17, 8, 6), 0xe8c8a0, 1.38);
+      add(G.box(0.55, 0.7, 0.08), 0xb8a060, 0.95).position.z = 0.28;
+    } else if (kind === 'priest') {
+      add(G.box(0.32, 0.7, 0.28), 0xf0ead8, 0.9);
+      add(G.sph(0.15, 8, 6), 0xe8c8a0, 1.35);
+      add(G.box(0.08, 0.4, 0.08), 0xe8c36a, 1.15).position.x = 0.22;
+    } else if (kind === 'general') {
+      add(G.box(0.42, 0.7, 0.32), 0x3a4a28, 1.05);
+      add(G.sph(0.18, 8, 6), 0xe8c8a0, 1.52);
+      add(G.box(0.08, 0.7, 0.08), 0xc0c8d4, 1.2).position.x = 0.32;
+      add(G.box(0.06, 0.7, 0.06), 0xc23b3b, 1.7).position.set(-0.22, 1.7, 0);
+      add(G.box(0.28, 0.18, 0.04), 0xe8c36a, 1.95).position.set(-0.36, 1.95, 0);
+    } else if (kind === 'slimeking') {
+      add(G.ico(0.7, 0), 0x4cbf3a, 0.85, 1.15);
+      add(G.ico(0.28, 0), 0x7dff6a, 1.55);
+      add(G.sph(0.08, 6, 4), 0x1a2a10, 1.7).position.x = -0.14;
+      add(G.sph(0.08, 6, 4), 0x1a2a10, 1.7).position.x = 0.14;
+    } else if (kind === 'slimelet') {
+      add(G.ico(0.28, 0), 0x7dff6a, 0.28);
+    } else if (kind === 'snail') {
+      add(G.sph(0.22, 8, 6), 0x8dff6a, 0.22);
+      add(G.sph(0.32, 8, 6), 0x4a8a32, 0.38).position.z = -0.12;
+    } else if (kind === 'prison') {
+      const cage = new THREE.Mesh(new THREE.SphereGeometry(0.85, 10, 8), new THREE.MeshBasicMaterial({
+        color: 0x6adf4a, wireframe: true, transparent: true, opacity: 0.75, toneMapped: false,
+      }));
+      cage.userData.ownMat = true; cage.userData.ownGeo = true;
+      cage.position.y = 0.85;
+      g.add(cage);
+    }
+    g.userData.body = g.children[0];
     return g;
   },
 

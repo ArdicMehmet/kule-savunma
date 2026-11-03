@@ -22,7 +22,7 @@ const BOSS_DEFS = [
   { id: 'frost', name: 'Buz Titanı', icon: '🧊', hp: 2500, armor: 38, gold: 300, dmg: 8, immune: 'ice', ability: 'freeze_wave', model: 'frostboss', color: 0x7ec8e8, scale: 2.4, height: 5.8, radius: 1.75 },
   { id: 'storm', name: 'Fırtına Lordu', icon: '⚡', hp: 2900, armor: 24, gold: 360, dmg: 9, immune: 'storm', ability: 'stun', model: 'stormboss', color: 0xb48cff, scale: 2.4, height: 6.0, radius: 1.7 },
   { id: 'venom', name: 'Veba Şamanı', icon: '☠️', hp: 3400, armor: 18, gold: 430, dmg: 9, immune: 'acid', ability: 'stun', model: 'venomboss', color: 0x8cff4a, scale: 2.25, height: 5.5, radius: 1.6 },
-  { id: 'lich', name: 'Ruh Lich', icon: '💀', hp: 4000, armor: 30, gold: 520, dmg: 10, immune: 'death', ability: 'freeze_wave', model: 'lichboss', color: 0xa45cff, scale: 2.5, height: 6.2, radius: 1.7 },
+  { id: 'lich', name: 'Ruh Lich', icon: '💀', hp: 4000, armor: 30, gold: 520, dmg: 10, immune: 'slime', ability: 'freeze_wave', model: 'lichboss', color: 0xa45cff, scale: 2.5, height: 6.2, radius: 1.7 },
   { id: 'root', name: 'Kök Dev', icon: '🌳', hp: 4700, armor: 42, gold: 620, dmg: 11, immune: 'life', ability: 'stun', model: 'rootboss', color: 0x5fe08a, scale: 2.55, height: 6.1, radius: 1.85 },
 ];
 function normImmunes(extra, bd) {
@@ -47,7 +47,11 @@ function damageElem(opts) {
   if (!opts) return null;
   if (opts.elem) return opts.elem;
   const src = opts.src;
-  if (src && src.isTower) return src.type;
+  if (src && src.isTower) {
+    const def = TOWER_TYPES[src.type];
+    if (def && def.element === false) return null;
+    return src.type;
+  }
   if (src && src.elem) return src.elem;
   return null;
 }
@@ -116,6 +120,8 @@ class Enemy {
     this.castT = T.healer || T.summoner ? rand(0.8, 1.8) : 0;
     this.bossCd = this.isBoss ? 1.1 : 0;
     this.warpCd = 0;
+    this.mud = 0; this.mudImmune = 0; this.mudSrc = null; this.prison = null;
+    this.allyAtk = 0;
 
     this.mat = MAT.vc.clone();
     this.mesh = new THREE.Mesh(Models.enemyGeometry(bd && bd.model ? bd.model : typeId), this.mat);
@@ -178,7 +184,11 @@ class Enemy {
     }
     let dmg = amount;
     const dot = opts && opts.dot;
-    if (!dot && src && src.isTower && !(opts && opts.basic) && this.game.abilityDmgMult > 1) dmg *= this.game.abilityDmgMult;
+    if (!dot && src && src.isTower && !(opts && opts.basic)) {
+      dmg *= this.game.abilityDmgMult || 1;
+      if (src.buffAbil > 1) dmg *= src.buffAbil;
+    }
+    if (dot && src && src.buffDot > 1) dmg *= src.buffDot;
     if (!dot) {
       const a = this.armor - this.shred;
       dmg *= a >= 0 ? 100 / (100 + a) : 2 - 100 / (100 - a);
@@ -376,6 +386,7 @@ class Enemy {
     if (this.rootT > 0) this.rootT -= dt;
     if (this.blockT > 0) this.blockT -= dt;
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) { this.slowAmt = 0; if (this.iceCrust) this.iceCrust.visible = false; } }
+    if (this.mudImmune > 0) this.mudImmune -= dt;
     if (this.shredT > 0) { this.shredT -= dt; if (this.shredT <= 0) this.shred = 0; }
     if (this.curseT > 0) this.curseT -= dt;
     if (this.decayT > 0) { this.decayT -= dt; if (this.decayT <= 0) this.decayAmt = 0; }
@@ -423,8 +434,33 @@ class Enemy {
 
     const mult = this.rootT > 0 || this.blockT > 0 ? 0 : 1 - this.slowAmt;
     let step = this.speed * mult * dt;
+    let blocker = null;
+    const allies = this.game.allies;
+    if (allies && allies.length) {
+      for (let i = 0; i < allies.length; i++) {
+        const a = allies[i];
+        if (!a.alive) continue;
+        if (a.block && a.path === this.path) {
+          const stop = a.dist - this.radius - a.radius;
+          if (this.dist + step >= stop && this.dist < a.dist + 1.4) {
+            this.dist = Math.min(this.dist, Math.max(0, stop));
+            step = 0;
+            blocker = a;
+            break;
+          }
+        }
+      }
+      if (!blocker) {
+        const rHit = (this.radius + 0.7) * (this.radius + 0.7);
+        for (let i = 0; i < allies.length; i++) {
+          const a = allies[i];
+          if (!a.alive || a.kind === 'prison') continue;
+          if (dist2(a.x, a.z, this.x, this.z) <= rHit) { blocker = a; break; }
+        }
+      }
+    }
     const king = this.game.king;
-    if (king && king.alive && king.path === this.path) {
+    if (!blocker && king && king.alive && king.path === this.path) {
       const stop = king.dist - this.radius - 0.75;
       if (this.dist + step >= stop) {
         this.dist = Math.min(this.dist, stop);
@@ -434,6 +470,13 @@ class Enemy {
           this.kingAtk = 0.85;
           king.takeHit(this.T.dmg * 4);
         }
+      }
+    }
+    if (blocker) {
+      this.allyAtk -= dt;
+      if (this.allyAtk <= 0) {
+        this.allyAtk = 0.85;
+        blocker.takeHit(this.T.dmg * 3.4);
       }
     }
     this.dist += step;
@@ -518,6 +561,9 @@ class Enemy {
       }
       if (this.poison > 0 && Math.random() < 0.6) {
         this.game.fxA.emit({ x: this.x + rand(-0.3, 0.3), y: h * rand(0.4, 1), z: this.z + rand(-0.3, 0.3), vy: rand(0.5, 1.2), life: 0.6, size: rand(0.18, 0.3), size2: 0.35, color: 0x7dff3a, alpha: 0.7 });
+      }
+      if (this.mud > 0) {
+        this.game.fxA.emit({ x: this.x + rand(-0.3, 0.3), y: h * rand(0.1, 0.6), z: this.z + rand(-0.3, 0.3), vy: rand(-0.1, 0.4), life: 0.55, size: rand(0.16, 0.28), size2: 0.05, color: choice([0x7dff6a, 0x4cbf3a]), alpha: 0.8 });
       }
       if (this.slowAmt > 0) {
         for (let i = 0; i < 2; i++) {

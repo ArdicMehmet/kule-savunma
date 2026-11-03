@@ -30,35 +30,43 @@ const TOWER_TYPES = {
     special: { name: 'Aşındırma', icon: '🛡️', desc: 'Zırh azaltma gücü ve azaltma sınırı artar.' },
     abilities: ['poison_cloud', 'poison_bomb', 'acid_spray', 'acid_rain', 'contagion'],
   },
-  death: {
-    id: 'death', name: 'Ölüm Kulesi', icon: '💀', color: '#b26bff', hex: 0xa45cff,
-    desc: 'Tekli atışlar düşmanı lanetler. Lanetli düşman ölünce ruh kazanırsın; ruhlar kulenin ve yeteneklerinin hasarını artırır.',
-    base: { damage: 15, rate: 0.95, range: 9 },
-    special: { name: 'Ruh Hasadı', icon: '👻', desc: 'Lanetli düşmanlardan çıkan ruh sayısı +1.', max: 7 },
-    basics: ['as', 'range', 'special'],
-    abilities: ['graveyard', 'death_gold', 'boomer', 'death_wave', 'death_pit'],
-  },
   life: {
     id: 'life', name: 'Yaşam Kulesi', icon: '🌳', color: '#5fe08a', hex: 0x5fe08a,
-    desc: 'Ateş etmez. Etki alanındaki kuleleri güçlendirir (saldırı hızı, zehir, çağrılan yaratık hasarı) ve doğanın gücüyle savaşır.',
+    desc: 'Ateş etmez. Yakınındaki kuleleri güçlendirir: hasar, menzil ve buf süresi.',
     base: { damage: 0, rate: 0, range: 8 },
     support: true,
-    basics: ['l_poison', 'l_haste', 'l_summon'],
-    abilities: ['vines', 'fairies', 'seismic', 'decay', 'seeds'],
+    basics: ['l_dur', 'range', 'l_dmg'],
+    abilities: ['speed_life', 'fairies', 'seismic', 'decay', 'seeds'],
+  },
+  unity: {
+    id: 'unity', name: 'Birlik Kulesi', icon: '🏹', color: '#e8c36a', hex: 0xe8c36a,
+    desc: 'Tepesindeki okçu fiziksel hasar atar. Yetenekleri asker çağırır; askerler ölünce 10 sn sonra döner.',
+    base: { damage: 11, rate: 1.05, range: 9.5 },
+    element: false,
+    basics: ['dmg', 'as', 'u_summon_dmg', 'u_summon_hp'],
+    abilities: ['knights', 'guards', 'priests', 'general', 'last_stand'],
+  },
+  slime: {
+    id: 'slime', name: 'Slime Kulesi', icon: '🟢', color: '#7dff6a', hex: 0x6adf4a,
+    desc: 'Atışlar balçık biriktirir. 10 yığında düşman 1 sn sersemler, ardından 2 sn yığın alamaz.',
+    base: { damage: 8, rate: 1.05, range: 8.5 },
+    unlock: 16,
+    basics: ['s_stun', 'as', 'dmg'],
+    abilities: ['slime_bomb', 'slime_punch', 'snail', 'slime_prison', 'slime_king'],
   },
 };
 
 const DEFAULT_BASICS = ['as', 'dmg', 'range', 'special'];
-// Ölüm Kulesi: ruhlara göre hasar bonusu (kule + yetenekler); azalan getiriyle sınırsız artar
-const soulBonus = (souls) => 0.55 * Math.log(1 + souls / 40);
 
 const BASIC_CARDS = {
   as: { name: 'Saldırı Hızı', icon: '💨', desc: 'Kulenin saldırı hızı +%12.' },
   dmg: { name: 'Hasar Artışı', icon: '⚔️', desc: 'Kulenin hasarı +%15. Yeteneklerin hasarını da artırır.' },
   range: { name: 'Menzil', icon: '🎯', desc: 'Kulenin menzili +%8.', max: 8 },
-  l_poison: { name: 'Zehirli Dikenler', icon: '🌿', desc: 'Etki alanındaki kulelerin her vuruşu %8 şansla zehir yükü bırakır.', max: 7 },
-  l_haste: { name: 'Doğanın Ritmi', icon: '🍃', desc: 'Etki alanındaki kulelerin saldırı hızı +%7.' },
-  l_summon: { name: 'Yaşam Bağı', icon: '💚', desc: 'Etki alanındaki kulelerin yetenekle çağırdığı yaratıkların (zombi, peri) hasarı +%25.' },
+  l_dur: { name: 'Kalıcı Buf', icon: '⏳', desc: 'Yaşam kulesinin verdiği buf süreleri +%12.' },
+  l_dmg: { name: 'Canlandırma', icon: '💚', desc: 'Etki alanındaki kulelerin hasarı +%10.' },
+  u_summon_dmg: { name: 'Birlik Hasarı', icon: '⚔️', desc: 'Çağrılan askerlerin hasarı +%18.' },
+  u_summon_hp: { name: 'Birlik Canı', icon: '❤️', desc: 'Çağrılan askerlerin canı +%20.' },
+  s_stun: { name: 'Balçık Sersemliği', icon: '💫', desc: '10 yığın sersemletmesi +0.1 sn.', max: 8 },
 };
 
 const ABILITY_DEFS = {
@@ -102,7 +110,7 @@ const ABILITY_DEFS = {
     desc: 'Kulenin saldırı hızını birkaç saniyeliğine büyük ölçüde artırır.',
     upg: 'Saldırı hızı bonusu ve süre artar.' },
   wind_wall: { tower: 'storm', name: 'Rüzgar Duvarı', rarity: 'orta', icon: '🌬️',
-    desc: 'İleriye rüzgardan bir duvar yollar. Duvar bir süre kalır ve düşmanları sürekli geri iterek ilerlemelerini engeller.',
+    desc: 'İleriye rüzgardan bir duvar yollar. Duvar bir süre kalır ve düşmanları geri iter. Bekleme süresi uzundur.',
     upg: 'Kalma süresi ve itme gücü artar.' },
   thor: { tower: 'storm', name: "Thor'un Gazabı", rarity: 'nadir', icon: '🔨',
     desc: 'PASİF: Belirli aralıklarla düşmanlara ağır hasar veren şimşekler düşer.',
@@ -126,38 +134,54 @@ const ABILITY_DEFS = {
   contagion: { tower: 'acid', name: 'Bulaşıcı Reaksiyon', rarity: 'nadir', icon: '☣️',
     desc: 'PASİF: Zehirli bir düşman öldüğünde patlar ve üzerindeki zehir yüklerini çevresindeki düşmanlara bulaştırır.',
     upg: 'Patlama alanı ve bulaşan zehir yüzdesi artar.' },
-  // ---- Ölüm ----
-  graveyard: { tower: 'death', name: 'Mezarlık', rarity: 'orta', icon: '⚰️',
-    desc: 'Belli aralıklarla kulenin yanında zombiler doğar. Düşman yaklaşınca üstüne koşup savaşır, bir süre sonra ölürler. Zombi sayısı sınırlıdır.',
-    upg: 'Zombi sayısı artar, doğma süresi kısalır.' },
-  death_gold: { tower: 'death', name: 'Ölüm Altını', rarity: 'orta', icon: '🪙',
-    desc: 'Belli aralıklarla birkaç düşmana ekstra hasarlı atış yapar. Bu atışla ölenler fazladan ruh verir ve altın değerinde kristal düşürür.',
-    upg: 'Atış sayısı, düşen ruh ve kristal sayısı artar.' },
-  boomer: { tower: 'death', name: 'BOOM-er', rarity: 'nadir', icon: '💥', requires: 'graveyard',
-    desc: 'Zombiler savaşlarının sonunda yok olmak yerine patlayarak alan hasarı verir. (Mezarlık gerektirir)',
-    upg: 'Patlama hasarı artar.' },
-  death_wave: { tower: 'death', name: 'Ölüm Dalgası', rarity: 'orta', icon: '☠️',
-    desc: 'Düşmanların üzerine ilerleyen bir ruh dalgası yollar. Değdiği düşmanlara hasar verir ve onları lanetler.',
-    upg: 'Dalganın alanı ve hasarı artar.' },
-  death_pit: { tower: 'death', name: 'Ölüm Çukuru', rarity: 'nadir', icon: '🕳️',
-    desc: 'Kulenin yakınında, yol üzerinde rastgele çukurlar açar. Çukura düşen düşman anında ölür (bosslar düşmez). Çukurlar bir süre sonra kapanır.',
-    upg: 'Bekleme süresi azalır, çukurlar büyür.' },
   // ---- Yaşam ----
-  vines: { tower: 'life', name: 'Zehirli Sarmaşıklar', rarity: 'orta', icon: '🌱',
-    desc: 'Düşmanların olduğu bölgeye zehirli sarmaşık atar. İçindekiler bir süre yerlerine sabitlenir ve üzerlerine zehir yükü biner.',
-    upg: 'Sarmaşık alanı artar.' },
+  speed_life: { tower: 'life', name: 'Speed for Life', rarity: 'orta', icon: '🍃',
+    desc: 'Etki alanındaki kulelerin saldırı hızını artırır.',
+    upg: 'Saldırı hızı kazancı artar.' },
   fairies: { tower: 'life', name: 'Orman Sakinleri', rarity: 'orta', icon: '🧚',
-    desc: 'Kulenin etrafında düşmanlara ateş eden periler belirir. Belli sayıda atış yapınca kaybolurlar. Kule başına sınırlı sayıda peri olabilir.',
-    upg: 'Perilerin menzili ve sayısı artar.' },
+    desc: 'Kulenin etrafında düşmanlara ateş eden periler belirir (kule başına en fazla 10). Periler yan kulelerin yetenek hasarını da artırır.',
+    upg: 'Yetenek hasarı artar.' },
   seismic: { tower: 'life', name: 'Sismik Darbe', rarity: 'nadir', icon: '🪨',
     desc: 'Düşmanlara bir toprak dalgası yollar. Dalgaya yakalanan düşmanlar geriye savrulur ve sersemler.',
     upg: 'Sersemletme süresi ve savurma gücü artar.' },
   decay: { tower: 'life', name: 'Çürüme', rarity: 'orta', icon: '🍂',
-    desc: 'Etki alanındaki düşmanlara çürüme uygular: saldırı güçleri azalır, kaleye ulaşırlarsa daha az hasar verirler.',
-    upg: 'Saldırı gücü azaltma etkisi artar.' },
+    desc: 'Etki alanındaki kulelerin yanma ve zehir gibi zamanla hasarlarını güçlendirir.',
+    upg: 'Zamanla hasar artışı büyür.' },
   seeds: { tower: 'life', name: 'Yaşam Tohumları', rarity: 'nadir', icon: '🌰',
-    desc: 'Düşmanların yanında tohumlar belirir. Herhangi bir kule yeteneği tohuma değerse patlar: alan hasarı ve zehir yükü verir. Kullanılmayan tohumlar kaybolur.',
+    desc: 'Düşmanların yanında az sayıda tohum belirir. Herhangi bir kule yeteneği değince patlar: alan hasarı ve zehir. Kullanılmayan tohumlar kaybolur.',
     upg: 'Hasar ve tohum sayısı artar.' },
+  // ---- Birlik ----
+  knights: { tower: 'unity', name: 'Knights', rarity: 'orta', icon: '🗡️',
+    desc: 'Menzilde 3 kılıçlı asker durur. Küçük menzillerine giren düşmana saldırırlar. Ölünce 10 sn sonra dönerler.',
+    upg: 'Saldırı gücü artar.' },
+  guards: { tower: 'unity', name: 'Guards', rarity: 'orta', icon: '🛡️',
+    desc: 'Gelen düşmanlara doğru 3 kalkanlı asker dizilir. Saldırmazlar, düşmanlar onları geçemez. Ölünce 10 sn sonra dönerler.',
+    upg: 'Canları artar.' },
+  priests: { tower: 'unity', name: 'Priests', rarity: 'orta', icon: '✝️',
+    desc: '3 rahip askerleri iyileştirir, düşmana vurmaz. Ölünce 10 sn sonra dönerler.',
+    upg: 'İyileştirme hızı ve miktarı artar.' },
+  general: { tower: 'unity', name: 'General', rarity: 'nadir', icon: '🎖️',
+    desc: 'Güçlü bir general çağırır. Yaşarken etrafındaki askerlere aura verir. Ölünce 10 sn sonra döner.',
+    upg: 'Auranın gücü artar.' },
+  last_stand: { tower: 'unity', name: 'Not Ready to Die', rarity: 'nadir', icon: '💀',
+    desc: 'Ölecek asker 3 sn daha güçlenip savaşır, sonra ölür.',
+    upg: 'Güçlenme artar.' },
+  // ---- Slime ----
+  slime_bomb: { tower: 'slime', name: 'Balçık Bombası', rarity: 'orta', icon: '💣',
+    desc: 'Bir alana balçık bombası atar. Hasar ve 1 balçık yığını verir.',
+    upg: 'Yığın ve hasar artar.' },
+  slime_punch: { tower: 'slime', name: 'Geri Dur!', rarity: 'orta', icon: '👊',
+    desc: 'Yerden gelen düşmanlara doğru bir balçık vuruşu yapar. Geri iter ve 1 yığın verir.',
+    upg: 'İtme mesafesi artar.' },
+  snail: { tower: 'slime', name: 'Salyangoz!?', rarity: 'nadir', icon: '🐌',
+    desc: 'Kulenin etrafında bir salyangoz gezer, arkasına balçık bırakır. Üzerinden geçenler hasar alır ve yığın birikir.',
+    upg: 'Hasar ve saniyedeki yığın artar.' },
+  slime_prison: { tower: 'slime', name: 'Balçık Hapsi', rarity: 'orta', icon: '🫙',
+    desc: 'Bir düşmanı balçık hapsine kapatır. Hap kırılmadan ilerleyemez.',
+    upg: 'Hapisin canı artar.' },
+  slime_king: { tower: 'slime', name: 'Slime King', rarity: 'nadir', icon: '👑',
+    desc: 'Menzilin uzak ucunda bir slime kralı durur. Dalga başında zıplayıp patlayan küçük slimelar çıkarır. Ölürse sonraki dalgada döner.',
+    upg: 'Çıkan slime sayısı artar.' },
 };
 
 // Her yetenek dosyası buraya { params, stats, update, onAcquire?, dispose? } kaydeder.
@@ -176,12 +200,15 @@ const pct = (v) => '%' + Math.round(v * 100);
 // Yeni kule tipi eklenince bağışıklık da otomatik açılır (dalga 5, 7, 9, 12, 15, 18, ...)
 const ELEMENT_UNLOCK = [8, 11, 14, 17, 20, 23, 26, 29];
 function elementUnlockWave(id) {
-  const i = Object.keys(TOWER_TYPES).indexOf(id);
+  const t = TOWER_TYPES[id];
+  if (!t || t.element === false) return 99;
+  if (t.unlock != null) return t.unlock;
+  const i = Object.keys(TOWER_TYPES).filter((k) => TOWER_TYPES[k].element !== false).indexOf(id);
   if (i < 0) return 99;
   return ELEMENT_UNLOCK[i] || (ELEMENT_UNLOCK[ELEMENT_UNLOCK.length - 1] + (i - ELEMENT_UNLOCK.length + 1) * 3);
 }
 function unlockedElements(wave) {
-  return Object.keys(TOWER_TYPES).filter((id) => wave >= elementUnlockWave(id));
+  return Object.keys(TOWER_TYPES).filter((id) => TOWER_TYPES[id].element !== false && wave >= elementUnlockWave(id));
 }
 function elementLabel(id) {
   const t = TOWER_TYPES[id];

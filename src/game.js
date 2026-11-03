@@ -60,7 +60,7 @@ class Game {
     this.eventHpMult = 1; this.eventSpeedMult = 1; this.eventGoldMult = 1; this.abilityCdMult = 1;
     this.activeEvent = null; this.wormholes = [];
     wrapAbilityDurations();
-    this.enemies = []; this.towers = []; this.projectiles = []; this.effects = []; this.seeds = [];
+    this.enemies = []; this.towers = []; this.projectiles = []; this.effects = []; this.seeds = []; this.allies = [];
     this.grid = new SpatialGrid(4); this._q = [];
     this.stats = { kills: 0, goldEarned: 0, towers: 0 };
     this.time = 0; this.camShake = 0; this.zoom = 1; this.zoomTarget = 1; this.smokeT = 0;
@@ -226,6 +226,7 @@ class Game {
     }
     if (this.snowCd > 0) { this.snowCd--; this.ui.updateSnowButton(); }
     if (this.king) this.king.onWaveStart();
+    for (const a of this.allies) if (a.onWaveStart) a.onWaveStart();
   }
 
   onWaveCleared(n) {
@@ -434,6 +435,7 @@ class Game {
     const q = this.camera.quaternion;
     for (const e of this.enemies) if (e.hpBar.visible) e.hpBar.quaternion.copy(q);
     if (this.king && this.king.alive) this.king.hpBar.quaternion.copy(q);
+    for (const a of this.allies) if (a.alive && a.hpBar) a.hpBar.quaternion.copy(q);
     this.ui.update(this.state === 'playing' ? dt * this.speed : dt);
     this.renderer.render(this.scene, this.camera);
   }
@@ -442,6 +444,14 @@ class Game {
     this.waves.update(dt);
     this.hero.update(dt, this.input);
     if (this.king) this.king.update(dt);
+    const al = this.allies;
+    for (let i = 0; i < al.length; i++) al[i].update(dt);
+    let aw = 0;
+    for (let i = 0; i < al.length; i++) {
+      if (al[i].pendingRemove) continue;
+      al[aw++] = al[i];
+    }
+    al.length = aw;
     const en = this.enemies;
     for (let i = 0; i < en.length; i++) en[i].update(dt, this.time);
     let w = 0;
@@ -624,7 +634,7 @@ class Game {
       const stats = d.support ? [
         ['Saldırı', null, 'Yok (destek)'],
         ['Etki alanı', null, fmt(d.base.range) + ' m'],
-        ['Alan bufu', null, '+%8 saldırı hızı'],
+        ['Temel buf', null, 'Hasar, menzil ve süre'],
       ] : [
         ['Hasar', null, fmt(d.base.damage)],
         ['Saldırı hızı', null, fmt(d.base.rate) + '/sn'],
@@ -715,22 +725,26 @@ class Game {
     this.contagionTower = best;
     // Yaşam Kulesi auraları: etki alanındaki kulelere buf
     for (const t of this.towers) {
-      t.buffHaste = 0; t.buffPoison = 0; t.buffSummon = 1; t.buffFrom = null;
+      t.buffHaste = 0; t.buffPoison = 0; t.buffSummon = 1; t.buffDmg = 0; t.buffAbil = 1; t.buffDot = 1; t.buffFrom = null;
     }
     for (const L of this.towers) {
       if (!L.isSupport) continue;
-      L.buffSummon += L.auraSummon;
+      L.buffSummon += L.auraSummon || 0;
       for (const t of this.towers) {
         if (t === L || !t.type || t.isSupport || dist(t.x, t.z, L.x, L.z) > L.range) continue;
-        t.buffHaste += L.auraHaste;
-        t.buffPoison += L.auraPoison;
-        t.buffSummon += L.auraSummon;
+        t.buffHaste += L.auraHaste || 0;
+        t.buffDmg += L.auraDmg || 0;
+        t.buffAbil *= 1 + (L.auraAbil || 0);
+        t.buffDot *= 1 + (L.auraDot || 0);
+        t.buffSummon += L.auraSummon || 0;
         if (!t.buffFrom || L.level > t.buffFrom.level) t.buffFrom = L;
       }
     }
     for (const t of this.towers) {
       t.buffHaste = Math.min(0.8, t.buffHaste);
-      t.buffPoison = Math.min(0.6, t.buffPoison);
+      t.buffDmg = Math.min(0.8, t.buffDmg);
+      t.buffAbil = Math.min(2.2, t.buffAbil);
+      t.buffDot = Math.min(2.5, t.buffDot);
       t.buffSummon = Math.min(3, t.buffSummon);
     }
   }
@@ -854,8 +868,8 @@ class Game {
       if (tw) contagionBurst(this, e, tw);
     }
     const ct = e.curseT > 0 ? e.curseSrc : null;
-    if (ct && !ct.removed) grantSouls(this, e, ct);
-    if (e.goldMark) { dropCrystals(this, e.x, e.z, e.goldMark.crystals); e.goldMark = null; }
+    if (ct && !ct.removed && typeof grantSouls === 'function') grantSouls(this, e, ct);
+    if (e.goldMark && typeof dropCrystals === 'function') { dropCrystals(this, e.x, e.z, e.goldMark.crystals); e.goldMark = null; }
   }
 
   enemyLeaked(e) {
