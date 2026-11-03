@@ -67,7 +67,7 @@ class IcePathFx extends Fx {
     const hw = p.width / 2 + 0.3;
     for (const e of g.enemies) {
       if (e.dead || e.path !== this.path) continue;
-      if (e.dist >= this.d0 && e.dist <= this.d1 && Math.abs(e.lateral) <= hw) e.applySlow(p.slow, 0.3);
+      if (e.dist >= this.d0 && e.dist <= this.d1 && Math.abs(e.lateral) <= hw) e.applySlow(p.slow, 0.3, this.tw);
     }
     return true;
   }
@@ -123,7 +123,7 @@ class IceSpikesFx extends Fx {
         this.erupted = true;
         for (const e of g.enemiesInRadius(this.x, this.z, p.radius)) {
           e.takeDamage(p.dmg, { src: this.tw });
-          e.applyRoot(p.root);
+          e.applyRoot(p.root, this.tw);
         }
         g.fxA.burst(this.x, 0.4, this.z, 26, { color: 0xbff0ff, speed: 4 + p.radius, life: 0.6, size: 0.35, gravity: 6, up: 1 });
         Sound.play('freeze');
@@ -190,7 +190,7 @@ class IceSawFx extends Fx {
       if (segDist2(e.x, e.z, ax, az, x, z) <= r * r) {
         this.hit.add(e);
         e.takeDamage(p.dmg, { src: this.tw });
-        e.applySlow(p.slow, p.slowDur);
+        e.applySlow(p.slow, p.slowDur, this.tw);
         g.fxA.burst(e.x, 0.8, e.z, 6, { color: 0xbff0ff, speed: 2.5, life: 0.35, size: 0.25 });
       }
     }
@@ -254,9 +254,9 @@ class SnowballFx extends Fx {
         this.hit.add(e);
         this.hits++;
         e.takeDamage(p.dmg * (1 + 0.1 * this.hits), { src: this.tw });
-        e.knockback(p.knock);
-        e.applyRoot(p.root);
-        e.applySlow(p.slow, p.root + 2.5);
+        e.knockback(p.knock, false, this.tw);
+        e.applyRoot(p.root, this.tw);
+        e.applySlow(p.slow, p.root + 2.5, this.tw);
         this.r = Math.min(2.8, this.r + 0.12);
         g.fxN.burst(e.x, 0.8, e.z, 10, { color: 0xffffff, speed: 3, life: 0.5, size: 0.35, gravity: 6 });
         Sound.play('snowball', 0.7);
@@ -315,7 +315,7 @@ class SnowAuraFx extends Fx {
       this.tick = 1;
       for (const e of g.enemiesInRadius(tw.x, tw.z, p.radius)) {
         e.takeDamage(p.dmg, { src: tw });
-        e.applySlow(p.slow, 1.2);
+        e.applySlow(p.slow, 1.2, this.tw);
       }
     }
     return true;

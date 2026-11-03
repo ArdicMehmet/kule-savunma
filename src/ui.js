@@ -10,6 +10,7 @@ class UI {
     this.el = {};
     ['hud', 'gold-val', 'castle-bar', 'castle-val', 'wave-val', 'wave-status', 'btn-call', 'btn-shop', 'btn-speed', 'btn-sound', 'btn-pause',
       'prompt', 'tower-panel', 'shop-panel', 'shop-items', 'shop-close', 'minimap', 'banner', 'banner-title', 'banner-sub', 'floaters',
+      'wave-preview', 'wave-preview-head', 'wave-preview-list',
       'toast', 'vignette', 'card-modal', 'card-title', 'card-sub', 'cards', 'btn-reroll', 'reroll-cost', 'start-screen', 'btn-start',
       'best-record', 'pause-screen', 'btn-resume', 'opt-music', 'opt-sfx', 'btn-restart', 'gameover-screen', 'go-stats', 'btn-again',
     ].forEach((id) => { this.el[id.replace(/-([a-z])/g, (m, c) => c.toUpperCase())] = $(id); });
@@ -60,6 +61,38 @@ class UI {
     e.banner.classList.add('show');
     clearTimeout(this.bannerTO);
     this.bannerTO = setTimeout(() => e.banner.classList.remove('show'), 2600);
+  }
+
+  showWavePreview(n, summary) {
+    const e = this.el;
+    e.wavePreviewHead.textContent = `Dalga ${n} — gelenler`;
+    e.wavePreviewList.innerHTML = summary.units.map((u) => {
+      const ims = u.immunes.map((im) =>
+        `<span class="wp-imm${im.isNew ? ' new' : ''}" style="--imm:${im.color}">${im.icon}${im.isNew ? ' NEW' : ''}</span>`
+      ).join('');
+      return `<div class="wp-unit${u.isNew ? ' new' : ''}">
+        ${u.isNew ? '<div class="wp-new">NEW</div>' : ''}
+        <div class="wp-ico">${u.icon}</div>
+        <div class="wp-name">${u.name}</div>
+        <div class="wp-count">×${u.count}</div>
+        ${ims ? `<div class="wp-imms">${ims}</div>` : ''}
+      </div>`;
+    }).join('');
+    e.wavePreview.classList.remove('hidden', 'leave');
+    e.wavePreview.classList.add('show');
+    clearTimeout(this.wpTO);
+  }
+
+  hideWavePreview(delay = 0) {
+    const e = this.el;
+    clearTimeout(this.wpTO);
+    const go = () => {
+      e.wavePreview.classList.add('leave');
+      e.wavePreview.classList.remove('show');
+      setTimeout(() => e.wavePreview.classList.add('hidden'), 400);
+    };
+    if (delay > 0) this.wpTO = setTimeout(go, delay);
+    else go();
   }
 
   toast(msg, bad = false) {
@@ -379,8 +412,8 @@ class UI {
     }
     for (const e of game.enemies) {
       if (e.dead) continue;
-      g.fillStyle = e.isBoss ? '#ffa21a' : '#ff4a3a';
-      const r = e.isBoss ? 4 : 2;
+      g.fillStyle = e.immune && TOWER_TYPES[e.immune] ? TOWER_TYPES[e.immune].color : (e.isBoss ? '#ffa21a' : '#ff4a3a');
+      const r = e.isBoss ? 4 : 2.4;
       g.fillRect(this.mx(e.x) - r / 2, this.my(e.z) - r / 2, r, r);
     }
     const h = game.hero;

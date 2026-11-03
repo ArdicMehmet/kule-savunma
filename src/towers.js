@@ -145,7 +145,7 @@ class Tower {
         g.addProjectile(new Projectile(g, {
           kind: 'ice', x: mx, y: my, z: mz, target: t, speed: 22,
           onHit: (x, y, z, e) => {
-            if (e) { this.basicHit(e, this.damage); e.applySlow(0.3 + this.slowBonus, 1.6); }
+            if (e) { this.basicHit(e, this.damage); e.applySlow(0.3 + this.slowBonus, 1.6, this); }
             g.fxA.burst(x, y, z, 7, { color: 0xbff0ff, speed: 2.5, life: 0.35, size: 0.25, gravity: 3 });
           },
         }));

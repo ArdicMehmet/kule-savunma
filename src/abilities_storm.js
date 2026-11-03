@@ -64,7 +64,7 @@ class TornadoFx extends Fx {
     }
     if (this.t < this.travel) return true;
     const list = g.enemiesInRadius(this.x, this.z, p.radius);
-    for (const e of list) e.pull(this.x, this.z, dt, 4);
+    for (const e of list) e.pull(this.x, this.z, dt, 4, this.tw);
     this.tick -= dt;
     if (this.tick <= 0) {
       this.tick = 0.25;
@@ -245,7 +245,7 @@ class PrisonFx extends Fx {
     this.shell.material.opacity = 0.18 * a;
     this.ring.material.opacity = 0.9 * a;
     const list = g.enemiesInRadius(this.x, this.z, p.radius);
-    for (const e of list) e.applyRoot(0.15);
+    for (const e of list) e.applyRoot(0.15, this.tw);
     this.tick -= dt;
     if (this.tick <= 0) {
       this.tick = 0.25;

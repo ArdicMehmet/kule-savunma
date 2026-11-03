@@ -173,7 +173,7 @@ class ZombieFx extends Fx {
           this.atkT = 0.7;
           this.swing = 1;
           e.takeDamage(ABILITY_IMPL.graveyard.hitDmg(tw), { src: tw });
-          e.applySlow(0.35, 0.9);
+          e.applySlow(0.35, 0.9, tw);
           g.fxA.burst(e.x, e.T.height * 0.5, e.z, 4, { color: choice(DEATH_COLORS), speed: 2, life: 0.3, size: 0.22, gravity: 2 });
           Sound.play('zombie_hit', 0.5);
         }
@@ -375,7 +375,7 @@ class DeathPitFx extends Fx {
     }
     if (open > 0.6 && this.left > 0 && !this.tw.removed) {
       for (const e of g.enemiesInRadius(this.x, this.z, s + 1)) {
-        if (e.isBoss || e.dead || e.sink) continue;
+        if (e.isBoss || e.dead || e.sink || e.immuneTo('death')) continue;
         if (dist(e.x, e.z, this.x, this.z) <= s * 0.85 + e.radius * 0.4) this.swallow(e);
         if (this.left <= 0) { this.life = Math.min(this.life, this.t + 0.45); break; }
       }

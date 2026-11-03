@@ -266,6 +266,20 @@ class SoundManager {
         this.noise({ dur: 0.35, vol: 0.2 * v, f0: 1500, f1: 200 });
         break;
       case 'sprout': this.tone({ type: 'sine', f0: 600 * p, f1: 1200 * p, dur: 0.12, vol: 0.03 * v }); break;
+      case 'heal':
+        [784, 988, 1175].forEach((f, i) => this.tone({ type: 'sine', f0: f * p, dur: 0.22, vol: 0.05 * v, delay: i * 0.04 }));
+        break;
+      case 'summon':
+        this.tone({ type: 'sawtooth', f0: 180 * p, f1: 420 * p, dur: 0.28, vol: 0.07 * v, q: 900 });
+        this.noise({ dur: 0.3, vol: 0.1 * v, type: 'bandpass', f0: 700, f1: 1800, Q: 1.4 });
+        break;
+      case 'dismount':
+        this.noise({ dur: 0.22, vol: 0.16 * v, f0: 500, f1: 120 });
+        this.tone({ type: 'triangle', f0: 240 * p, f1: 90, dur: 0.2, vol: 0.08 * v });
+        break;
+      case 'immune':
+        this.tone({ type: 'square', f0: 420 * p, f1: 280 * p, dur: 0.09, vol: 0.04 * v, q: 1800 });
+        break;
     }
   }
 
@@ -331,6 +345,7 @@ SoundManager.GAPS = {
   meteor_fall: 0.12, snowball: 0.1, saw: 0.15, wind: 0.5, fire_whoosh: 0.15, card_flip: 0.05,
   curse: 0.09, soul: 0.07, gold_shot: 0.1, crystal: 0.08, zombie: 0.6, zombie_hit: 0.08, death_wave: 0.3,
   pit: 0.3, pit_fall: 0.06, vine: 0.2, fairy: 0.3, fairy_shot: 0.06, quake: 0.3, decay: 0.4, seed_pop: 0.06, sprout: 0.25,
+  heal: 0.25, summon: 0.35, dismount: 0.12, immune: 0.12,
 };
 
 const Sound = new SoundManager();

@@ -171,3 +171,18 @@ function abilityTick(ab, dt, cd, fire) {
 
 const sec = (v) => v.toFixed(1) + ' sn';
 const pct = (v) => '%' + Math.round(v * 100);
+
+// Yeni kule tipi eklenince bağışıklık da otomatik açılır (dalga 5, 7, 9, 12, 15, 18, ...)
+const ELEMENT_UNLOCK = [5, 7, 9, 12, 15, 18, 21, 24];
+function elementUnlockWave(id) {
+  const i = Object.keys(TOWER_TYPES).indexOf(id);
+  if (i < 0) return 99;
+  return ELEMENT_UNLOCK[i] || (ELEMENT_UNLOCK[ELEMENT_UNLOCK.length - 1] + (i - ELEMENT_UNLOCK.length + 1) * 3);
+}
+function unlockedElements(wave) {
+  return Object.keys(TOWER_TYPES).filter((id) => wave >= elementUnlockWave(id));
+}
+function elementLabel(id) {
+  const t = TOWER_TYPES[id];
+  return t ? t.name.replace(' Kulesi', '') : id;
+}

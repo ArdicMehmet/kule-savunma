@@ -176,6 +176,7 @@ class Game {
     this.state = 'playing';
     this.ui.showHUD();
     this.ui.banner('Kaleyi Savun!', `İlk dalga ${CFG.firstBreak} saniye sonra · Mağazadan (B) bir Kule Temeli al`, '#ffd451');
+    this.waves.prepareNext();
   }
 
   restart() {
@@ -713,8 +714,8 @@ class Game {
   }
 
   // ---------------- Düşmanlar ----------------
-  spawnEnemy(type, path, wave, lateral) {
-    const e = new Enemy(this, type, path, wave, lateral);
+  spawnEnemy(type, path, wave, lateral, extra) {
+    const e = new Enemy(this, type, path, wave, lateral, extra);
     this.enemies.push(e);
     return e;
   }
@@ -728,7 +729,7 @@ class Game {
   onEnemyKilled(e, src) {
     this.stats.kills++;
     this.addGold(e.gold);
-    this.ui.floatText(e.x, e.T.height + 0.6, e.z, `+${e.gold}`, '#ffd451', e.isBoss ? 24 : 14);
+    this.ui.floatText(e.x, e.visHeight + 0.6, e.z, `+${e.gold}`, '#ffd451', e.isBoss ? 24 : 14);
     Sound.play(e.isBoss ? 'boss_die' : 'enemy_die', 0.7);
     this.fxN.burst(e.x, e.T.height * 0.5, e.z, e.isBoss ? 40 : 10, { color: e.T.color, speed: 3, life: 0.6, size: 0.3, gravity: 6 });
     if (e.isBoss) {

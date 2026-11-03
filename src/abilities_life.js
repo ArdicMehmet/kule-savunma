@@ -64,7 +64,7 @@ class VinesFx extends Fx {
     if (this.tick <= 0) {
       this.tick = 0.5;
       for (const e of g.enemiesInRadius(this.x, this.z, p.radius)) {
-        if (!this.rooted.has(e)) { this.rooted.add(e); e.applyRoot(p.root); }
+        if (!this.rooted.has(e)) { this.rooted.add(e); e.applyRoot(p.root, this.tw); }
         e.addPoison(p.stacks, poisonDps(this.tw), this.tw);
       }
     }
@@ -245,8 +245,8 @@ class SeismicFx extends Fx {
         if (along >= prev - 0.8 && along <= this.front + 0.8 && across <= w / 2 + e.radius) {
           this.hit.add(e);
           e.takeDamage(p.dmg, { src: this.tw });
-          e.knockback(p.knock, true);
-          e.applyRoot(p.stun);
+          e.knockback(p.knock, true, this.tw);
+          e.applyRoot(p.stun, this.tw);
           g.fxA.burst(e.x, e.T.height + 0.2, e.z, 5, { color: 0xfff08a, speed: 1.5, life: 0.5, size: 0.2, gravity: 0 });
         }
       }
